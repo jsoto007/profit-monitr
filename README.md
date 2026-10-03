@@ -171,6 +171,7 @@ differences:
 | Live feed times are real timestamps | The prototype ages every row three minutes per tick |
 | A negative delta ("−3% vs previous") is not tinted green | The handoff README says deltas are mint "when positive" |
 | Page title is "Profit Monitr — …" on the landing page | The reference alternates between "Monitr" and "Profit Monitr" |
+| No black page frame under 720 px: the canvas runs edge to edge with square corners | On a phone the 16 px frame reads as a black border, not a frame. One media query on the frame tokens in `src/styles/tokens.css` |
 
 ## Open questions
 
