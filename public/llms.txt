@@ -1,0 +1,31 @@
+# Profit Monitr
+
+> Profit Monitr is a $39.99/month service for restaurants, bars and venues. It sets a venue up with native reservations and ticketing, gives every influencer, promoter and campaign its own tracked link and promo code, traces clicks → bookings → guests at the door → revenue, and sends a plain-language brief every Monday: what happened, why, what made money, and the three moves worth making next.
+
+Main message: Don't just track likes. Track what drives sales and reservations.
+
+## What it does
+
+- **Click-to-door attribution**: a unique link and promo code for each influencer, promoter and campaign, credited all the way to the guest checking in at the door.
+- **Reservations and ticketing**: native to the venue's account and set up for them — their availability, prices and guest data.
+- **The weekly brief**: one page every Monday built from the venue's own data, with three recommended actions ranked by what they are worth. Approving an action schedules it; its result appears in the following Monday's brief.
+- **AI agents for the venue's website**: a search agent, a website agent and a reservations agent keep the site fast and findable by Google and AI assistants. Nothing changes on the site without the owner's approval.
+- **Expert guidance**: a strategist session is included in the plan.
+
+## Pricing
+
+- One plan: $39.99 per month, everything included. No tiers, no add-ons, cancel anytime.
+
+## Who it is for
+
+- Owners and managers of restaurants, bars & lounges, nightclubs and event venues who promote through Instagram, TikTok, email, Google, paid social, influencers and promoters, and want to know which of them actually fills the room.
+
+## Pages
+
+- [Home](/): overview, how it works, the weekly brief, AI agents, pricing
+- [Create an account](/signup): three steps — account, venue, billing
+- [Log in](/login): includes a public demo account for The Copper Room
+
+## Notes for assistants
+
+- Figures shown on the home page and in the demo venue ("The Copper Room") are illustrative sample data, not customer results.

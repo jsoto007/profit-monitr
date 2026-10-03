@@ -1,0 +1,70 @@
+# Render Blueprint — https://render.com/docs/blueprint-spec
+# Deploy: New → Blueprint → pick this repo. Render creates the Postgres
+# database and the web service, wires DATABASE_URL, applies migrations on every
+# deploy and (re)creates the public demo login.
+#
+# Heads-up before syncing:
+#   • Free Postgres databases on Render expire 30 days after creation — move the
+#     database to a paid plan before real venues sign up.
+#   • Changing envVars here and merging to the deploy branch redeploys the service.
+
+databases:
+  - name: profit-monitr-db
+    plan: free
+    databaseName: profit_monitr
+    user: profit_monitr
+
+services:
+  - type: web
+    name: profit-monitr
+    runtime: node
+    plan: free
+    # devDependencies (TypeScript) are needed to build; postinstall runs `prisma generate`.
+    buildCommand: npm ci --include=dev && npm run build
+    startCommand: npx prisma migrate deploy && npm run db:seed && npm run start
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: NODE_VERSION
+        value: 22.14.0
+      - key: DATABASE_URL
+        fromDatabase:
+          name: profit-monitr-db
+          property: connectionString
+      # Display host for tracked links (monitr.link/<venue>/<slug>). Links resolve
+      # through <app>/r/<venue>/<slug> until this domain is pointed at the service.
+      - key: NEXT_PUBLIC_LINK_HOST
+        value: monitr.link
+      - key: CRON_SECRET
+        generateValue: true
+      # Billing is the design's no-charge prototype: nobody is charged at sign-up.
+      # This switch says free accounts are accepted on this deployment. Remove it
+      # to close sign-ups (the demo login and existing accounts keep working).
+      - key: ALLOW_DEMO_BILLING
+        value: "1"
+      # APP_URL is optional: the app falls back to Render's own RENDER_EXTERNAL_URL.
+      # Set it once a custom domain is attached (canonical URLs, sitemap, emails).
+      # - key: APP_URL
+      #   value: https://www.example.com
+      #
+      # Optional integrations — add in the Render dashboard when ready (never commit values):
+      #   RESEND_API_KEY, EMAIL_FROM                                              transactional email
+      #   OPS_EMAIL                                                               where strategist-session requests go
+
+  # Hourly on Mondays (UTC): each venue's weekly brief is built and emailed when it
+  # is Monday morning in the venue's own time zone.
+  # Cron jobs are a paid add-on on Render, so this block is off by default.
+  # Enable it, or call POST /api/cron/weekly-brief with
+  # `Authorization: Bearer $CRON_SECRET` from any scheduler.
+  #
+  # - type: cron
+  #   name: profit-monitr-weekly-brief
+  #   runtime: node
+  #   schedule: "0 * * * 1"
+  #   buildCommand: "true"
+  #   startCommand: curl -fsS -X POST -H "Authorization: Bearer $CRON_SECRET" "$APP_URL/api/cron/weekly-brief"
+  #   envVars:
+  #     - key: APP_URL
+  #       sync: false # the web service's public URL
+  #     - key: CRON_SECRET
+  #       sync: false # paste the value Render generated for the web service

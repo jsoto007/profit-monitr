@@ -1,0 +1,243 @@
+// Profit Monitr — data model.
+// Prisma 7: the client is generated into src/generated/prisma and the
+// connection URL lives in prisma.config.ts (DATABASE_URL).
+//
+// Conventions: every timestamp is timestamptz (UTC); money is integer cents.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String
+  passwordHash String
+  isDemo       Boolean  @default(false)
+  createdAt    DateTime @default(now()) @db.Timestamptz(3)
+
+  venue    Venue?
+  sessions AuthSession[]
+}
+
+model AuthSession {
+  id        String   @id @default(cuid())
+  /// SHA-256 of the cookie token — the raw token is never stored.
+  tokenHash String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime @db.Timestamptz(3)
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model Venue {
+  id                String   @id @default(cuid())
+  userId            String   @unique
+  user              User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name              String
+  slug              String   @unique
+  type              String   @default("Restaurant")
+  city              String   @default("")
+  website           String   @default("")
+  /// IANA zone; week boundaries, "today" and the Monday brief follow it.
+  timezone          String   @default("America/New_York")
+  sellsReservations Boolean  @default(true)
+  sellsTickets      Boolean  @default(false)
+  promoChannels     String[] @default([])
+
+  // Billing. Card numbers never reach this server; only the last four digits
+  // are stored. Nothing is charged yet: subscriptionStatus is "demo" and the
+  // two provider ids stay null until real billing is built.
+  cardLast4            String  @default("")
+  stripeCustomerId     String? @unique
+  stripeSubscriptionId String? @unique
+  subscriptionStatus   String  @default("demo")
+
+  /// true → the dashboard shows the sample venue from the design handoff;
+  /// false → every figure is measured from this venue's own activity.
+  sampleData Boolean @default(true)
+
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+
+  channels        Channel[]
+  contents        Content[]
+  events          Event[]
+  bookings        Booking[]
+  actions         Action[]
+  recommendations Recommendation[]
+  agentNotes      AgentNote[]
+  expertRequests  ExpertRequest[]
+}
+
+/// A tracked source: one link (monitr.link/<venue>/<slug>) and one promo code.
+model Channel {
+  id               String  @id @default(cuid())
+  venueId          String
+  venue            Venue   @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  name             String // "Instagram influencers"
+  short            String  @default("") // "Influencers" — used in headlines
+  detail           String  @default("") // "Instagram · @maria.eats"
+  slug             String
+  code             String
+  discountPct      Int?
+  weeklySpendCents Int     @default(0)
+  active           Boolean @default(true)
+
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+
+  contents Content[]
+  clicks   ClickEvent[]
+  bookings Booking[]
+
+  @@unique([venueId, slug])
+  @@unique([venueId, code])
+}
+
+/// A single post / email / ad under a channel: monitr.link/<venue>/<channel>/<slug>.
+model Content {
+  id        String  @id @default(cuid())
+  venueId   String
+  venue     Venue   @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  channelId String
+  channel   Channel @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  name      String
+  slug      String
+
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+
+  clicks   ClickEvent[]
+  bookings Booking[]
+
+  @@unique([channelId, slug])
+  @@index([venueId])
+}
+
+model ClickEvent {
+  id        String   @id @default(cuid())
+  channelId String
+  channel   Channel  @relation(fields: [channelId], references: [id], onDelete: Cascade)
+  contentId String?
+  content   Content? @relation(fields: [contentId], references: [id], onDelete: SetNull)
+  userAgent String   @default("")
+  referer   String   @default("")
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+
+  @@index([channelId, createdAt])
+}
+
+/// A ticketed night or a bookable service ("Jazz Night", "Sunset Sessions").
+model Event {
+  id         String   @id @default(cuid())
+  venueId    String
+  venue      Venue    @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  name       String
+  startsAt   DateTime @db.Timestamptz(3)
+  kind       String // TICKET | RESERVATION
+  capacity   Int
+  priceCents Int      @default(0)
+
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+
+  bookings Booking[]
+
+  @@index([venueId, startsAt])
+}
+
+model Booking {
+  id           String    @id @default(cuid())
+  venueId      String
+  venue        Venue     @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  channelId    String?
+  channel      Channel?  @relation(fields: [channelId], references: [id], onDelete: SetNull)
+  contentId    String?
+  content      Content?  @relation(fields: [contentId], references: [id], onDelete: SetNull)
+  eventId      String?
+  event        Event?    @relation(fields: [eventId], references: [id], onDelete: SetNull)
+  kind         String // RESERVATION | TICKET
+  confirmation String    @unique
+  guestName    String
+  guestEmail   String    @default("")
+  /// guests on a reservation, or tickets on a ticket order
+  partySize    Int       @default(2)
+  date         DateTime  @db.Timestamptz(3)
+  promoCode    String    @default("")
+  /// Tickets: price × quantity at booking. Reservations: the bill entered at the door.
+  amountCents  Int       @default(0)
+  checkedInAt  DateTime? @db.Timestamptz(3)
+  createdAt    DateTime  @default(now()) @db.Timestamptz(3)
+
+  @@index([venueId, createdAt])
+  @@index([venueId, checkedInAt])
+  @@index([venueId, date])
+  @@index([channelId, createdAt])
+}
+
+/// One of the three weekly moves in "Next actions".
+model Action {
+  id          String    @id @default(cuid())
+  venueId     String
+  venue       Venue     @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  sample      Boolean   @default(false)
+  /// Monday of the week the action belongs to (calendar date).
+  weekStart   DateTime  @db.Date
+  rank        Int
+  title       String
+  description String
+  estimate    String    @default("")
+  /// Gerund phrase the agent uses: "rebooking @maria.eats".
+  tip         String    @default("")
+  status      String    @default("open") // open | approved | done | skipped
+  result      String    @default("")
+  approvedAt  DateTime? @db.Timestamptz(3)
+  createdAt   DateTime  @default(now()) @db.Timestamptz(3)
+
+  @@unique([venueId, sample, weekStart, rank])
+}
+
+/// A website change proposed by an agent; nothing ships without approval.
+model Recommendation {
+  id          String    @id @default(cuid())
+  venueId     String
+  venue       Venue     @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  sample      Boolean   @default(false)
+  rank        Int
+  title       String
+  description String
+  status      String    @default("open") // open | approved
+  approvedAt  DateTime? @db.Timestamptz(3)
+  createdAt   DateTime  @default(now()) @db.Timestamptz(3)
+
+  @@index([venueId])
+}
+
+/// The "Agent note" on the Live screen and its one-tap follow-through.
+model AgentNote {
+  id        String    @id @default(cuid())
+  venueId   String
+  venue     Venue     @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  sample    Boolean   @default(false)
+  body      String
+  status    String    @default("open") // open | sent
+  sentAt    DateTime? @db.Timestamptz(3)
+  createdAt DateTime  @default(now()) @db.Timestamptz(3)
+
+  @@index([venueId])
+}
+
+/// "Book a 30-minute session" — a request the team follows up by email.
+model ExpertRequest {
+  id        String   @id @default(cuid())
+  venueId   String
+  venue     Venue    @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+
+  @@index([venueId, createdAt])
+}

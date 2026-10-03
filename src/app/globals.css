@@ -1,0 +1,300 @@
+@import "../styles/tokens.css";
+
+/* ── base ─────────────────────────────────────────────────────────────── */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  margin: 0;
+  background: var(--ink);
+  color: var(--ink);
+  font-family: var(--font-sans);
+  text-wrap: pretty;
+  -webkit-font-smoothing: antialiased;
+}
+
+a {
+  color: var(--ink);
+  text-decoration: none;
+}
+a:hover {
+  color: var(--text-body);
+}
+
+button,
+input {
+  font-family: inherit;
+}
+
+a:focus-visible,
+button:focus-visible,
+input:focus-visible {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}
+/* The ink ring disappears on the black frame; flip it there. */
+.on-dark a:focus-visible,
+.on-dark button:focus-visible {
+  outline-color: var(--paper);
+}
+
+input::placeholder {
+  color: var(--text-ghost);
+}
+
+h1,
+h2,
+h3,
+p {
+  margin: 0;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+.tnum {
+  font-feature-settings: "tnum" 1;
+}
+
+@keyframes pm-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ── the black page frame ─────────────────────────────────────────────── */
+.frame {
+  min-height: 100vh;
+  background: var(--ink);
+  padding: var(--frame-pad);
+  color: var(--ink);
+}
+
+/* ── logo ─────────────────────────────────────────────────────────────── */
+.logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  white-space: nowrap;
+  color: inherit;
+}
+.logo svg {
+  display: block;
+  flex: none;
+}
+
+/* ── buttons (app + auth: <button>, line-height 1) ────────────────────── */
+.btn {
+  font: 600 15px/1 var(--font-ui);
+  border: 0;
+  border-radius: var(--r-pill);
+  padding: 16px 24px;
+  cursor: pointer;
+  background: var(--ink);
+  color: var(--paper);
+  white-space: nowrap;
+  text-align: center;
+}
+.btn:hover {
+  color: var(--paper);
+}
+.btn[disabled] {
+  cursor: default;
+}
+.btn-secondary {
+  background: var(--paper);
+  color: var(--ink);
+  border: var(--border-ink);
+  padding: 14px 22px;
+}
+.btn-secondary:hover {
+  color: var(--ink);
+}
+.btn-light {
+  background: var(--paper);
+  color: var(--ink);
+}
+.btn-light:hover {
+  color: var(--ink);
+}
+/* sizes: paddings from the handoff; secondary is 2px shorter per side for its border */
+.btn-md {
+  padding: 15px 22px;
+}
+.btn-md.btn-secondary {
+  padding: 13px 20px;
+}
+.btn-sm {
+  font-size: 14px;
+  padding: 13px 18px;
+}
+.btn-sm.btn-light {
+  padding: 12px 18px;
+}
+.btn-xs {
+  font-size: 13px;
+  padding: 11px 16px;
+}
+.btn-toggle {
+  font-size: 14px;
+  padding: 10px 16px;
+}
+.btn-text {
+  background: transparent;
+  color: var(--mint-ink);
+  cursor: default;
+}
+.btn-text:hover {
+  color: var(--mint-ink);
+}
+.btn-busy {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+}
+.spinner {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.35);
+  border-top-color: var(--paper);
+  animation: pm-spin var(--dur-spin) linear infinite;
+  display: block;
+}
+
+/* ── segmented control ────────────────────────────────────────────────── */
+.seg {
+  display: inline-flex;
+  flex-wrap: wrap;
+  background: var(--canvas-alt);
+  border-radius: var(--r-pill);
+  padding: 4px;
+}
+.seg button {
+  font: 600 13px/1 var(--font-ui);
+  border: 0;
+  border-radius: var(--r-pill);
+  padding: 9px 14px;
+  cursor: pointer;
+  background: transparent;
+  color: var(--ink);
+}
+.seg button[aria-pressed="true"] {
+  background: var(--ink);
+  color: var(--paper);
+}
+
+/* ── kicker + live dot ────────────────────────────────────────────────── */
+.kicker {
+  font-size: var(--fs-kicker);
+  font-weight: 600;
+  color: var(--text-label);
+  letter-spacing: var(--ls-kicker);
+}
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--live-green);
+  display: block;
+  flex: none;
+}
+
+/* ── toast ────────────────────────────────────────────────────────────── */
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: 24px;
+  transform: translateX(-50%);
+  z-index: 100;
+  background: var(--ink);
+  color: var(--paper);
+  border-radius: var(--r-pill);
+  padding: 12px 18px;
+  font-size: 14px;
+  font-weight: 600;
+  box-shadow: var(--shadow-toast);
+  white-space: nowrap;
+  max-width: calc(100vw - 32px);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ── form fields (auth, booking, door) ────────────────────────────────── */
+.field {
+  display: grid;
+  gap: 6px;
+  font-size: 14px;
+  font-weight: 600;
+}
+.field .optional {
+  font-weight: 500;
+  color: var(--text-faint);
+}
+.input {
+  font: 500 15px var(--font-ui);
+  min-height: 50px;
+  padding: 0 16px;
+  border-radius: var(--r-input);
+  border: var(--border-card);
+  background: var(--paper);
+  color: var(--ink);
+  width: 100%;
+}
+.input.is-error {
+  border-color: var(--error);
+}
+.input-tight {
+  padding: 0 14px;
+}
+.field-error {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--error);
+  min-height: 1em;
+}
+
+/* ── chips (single- and multi-select) ─────────────────────────────────── */
+.chip {
+  font: 600 14px/1 var(--font-ui);
+  border-radius: var(--r-pill);
+  padding: 11px 16px;
+  cursor: pointer;
+  border: var(--border-card);
+  background: var(--paper);
+  color: var(--ink);
+}
+.chip[aria-pressed="true"],
+.chip[aria-checked="true"] {
+  border-color: var(--ink);
+  background: var(--ink);
+  color: var(--paper);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}

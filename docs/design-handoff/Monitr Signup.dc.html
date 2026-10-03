@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<title>Create your account — Profit Monitr</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Figtree:wght@400;500;600;700;800&display=swap">
+<style>
+*, *::before, *::after { box-sizing: border-box; }
+body { margin: 0; background: #111; text-wrap: pretty; -webkit-font-smoothing: antialiased; }
+a { color: #111; text-decoration: none; } a:hover { color: #555; }
+a:focus-visible, button:focus-visible, input:focus-visible { outline: 2px solid #111; outline-offset: 2px; }
+input::placeholder { color: #999; }
+@keyframes mn-spin { to { transform: rotate(360deg); } }
+</style>
+</helmet>
+<div style="min-height: 100vh; background: #111; padding: 16px; font-family: 'Figtree', system-ui, sans-serif; color: #111; display: grid; grid-template-columns: {{ cols }}; gap: 16px; align-items: stretch;">
+
+  <sc-if value="{{ wide }}" hint-placeholder-val="{{ true }}">
+  <aside style="color: #fff; padding: 22px 18px 18px; display: flex; flex-direction: column; gap: 36px;">
+    <a href="Profit Monitr Landing v2.dc.html" style="display: flex; align-items: center; gap: 10px; color: #fff;"><svg viewBox="0 0 64 64" style="width: 30px; height: 30px; display: block; flex: none;"><rect x="7" y="7" width="22" height="22" fill="none" stroke="#fff" stroke-width="2.5"></rect><rect x="35" y="7" width="22" height="22" fill="none" stroke="#fff" stroke-width="2.5"></rect><rect x="7" y="35" width="22" height="22" fill="none" stroke="#fff" stroke-width="2.5"></rect><rect x="33.75" y="33.75" width="24.5" height="24.5" fill="#e1ad66"></rect></svg><span style="font-weight: 800; font-size: 18px; letter-spacing: -0.03em; white-space: nowrap;">Profit Monitr</span></a>
+    <sc-if value="{{ isSignup }}" hint-placeholder-val="{{ true }}">
+      <div>
+        <h1 style="font-size: clamp(32px, 3vw, 44px); font-weight: 800; line-height: 1; letter-spacing: -0.04em; margin: 0;">Start filling the room.</h1>
+        <p style="font-size: 15px; line-height: 1.55; margin: 14px 0 0; color: rgba(255,255,255,.65); max-width: 32ch;">Three quick steps. We set up your reservations and ticketing as soon as you're in.</p>
+      </div>
+      <div style="display: grid; gap: 6px;">
+        <div style="display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 14px; background: {{ st.s1.bg }}; transition: background 300ms;"><span style="width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; font-size: 12px; font-weight: 800; background: {{ st.s1.nbg }}; color: {{ st.s1.nfc }};">{{ st.s1.n }}</span><span style="font-weight: 600; font-size: 14px; color: {{ st.s1.fc }};">Your account</span></div>
+        <div style="display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 14px; background: {{ st.s2.bg }}; transition: background 300ms;"><span style="width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; font-size: 12px; font-weight: 800; background: {{ st.s2.nbg }}; color: {{ st.s2.nfc }};">{{ st.s2.n }}</span><span style="font-weight: 600; font-size: 14px; color: {{ st.s2.fc }};">Your venue</span></div>
+        <div style="display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 14px; background: {{ st.s3.bg }}; transition: background 300ms;"><span style="width: 28px; height: 28px; border-radius: 50%; display: grid; place-items: center; font-size: 12px; font-weight: 800; background: {{ st.s3.nbg }}; color: {{ st.s3.nfc }};">{{ st.s3.n }}</span><span style="font-weight: 600; font-size: 14px; color: {{ st.s3.fc }};">Billing</span></div>
+      </div>
+    </sc-if>
+    <sc-if value="{{ isLogin }}" hint-placeholder-val="{{ false }}">
+      <div>
+        <h1 style="font-size: clamp(32px, 3vw, 44px); font-weight: 800; line-height: 1; letter-spacing: -0.04em; margin: 0;">Your Monday brief is waiting.</h1>
+        <p style="font-size: 15px; line-height: 1.55; margin: 14px 0 0; color: rgba(255,255,255,.65); max-width: 32ch;">Log in to see what happened, why, and what to do next.</p>
+      </div>
+    </sc-if>
+    <div style="margin-top: auto; background: rgba(255,255,255,.08); border-radius: 20px; padding: 18px;">
+      <div style="display: flex; justify-content: space-between; align-items: baseline; gap: 12px;"><span style="font-size: 13px; font-weight: 600; color: rgba(255,255,255,.7);">Your plan</span><span style="font-size: 26px; font-weight: 800; letter-spacing: -0.04em;">$39.99<span style="font-size: 13px; font-weight: 500; color: rgba(255,255,255,.6);"> /mo</span></span></div>
+      <div style="display: grid; gap: 8px; margin-top: 14px; font-size: 13.5px; color: rgba(255,255,255,.8);">
+        <span style="display: flex; gap: 10px; align-items: center;"><span style="width: 6px; height: 6px; border-radius: 50%; background: #c9f2dc; flex: none;"></span>Reservations &amp; ticketing, set up for you</span>
+        <span style="display: flex; gap: 10px; align-items: center;"><span style="width: 6px; height: 6px; border-radius: 50%; background: #c9f2dc; flex: none;"></span>Unlimited tracked links &amp; codes</span>
+        <span style="display: flex; gap: 10px; align-items: center;"><span style="width: 6px; height: 6px; border-radius: 50%; background: #c9f2dc; flex: none;"></span>The weekly brief, every Monday</span>
+        <span style="display: flex; gap: 10px; align-items: center;"><span style="width: 6px; height: 6px; border-radius: 50%; background: #c9f2dc; flex: none;"></span>Website, SEO &amp; AI discovery</span>
+        <span style="display: flex; gap: 10px; align-items: center;"><span style="width: 6px; height: 6px; border-radius: 50%; background: #c9f2dc; flex: none;"></span>Expert guidance, included</span>
+      </div>
+    </div>
+  </aside>
+  </sc-if>
+
+  <main style="background: #fff; border-radius: 32px; padding: clamp(20px, 3vw, 36px) clamp(20px, 4vw, 56px) 56px; min-width: 0; display: flex; flex-direction: column;">
+    <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+      <sc-if value="{{ narrow }}" hint-placeholder-val="{{ false }}"><a href="Profit Monitr Landing v2.dc.html" style="display: flex; align-items: center; gap: 10px;"><svg viewBox="0 0 64 64" style="width: 28px; height: 28px; display: block; flex: none;"><rect x="7" y="7" width="22" height="22" fill="none" stroke="#111" stroke-width="2.5"></rect><rect x="35" y="7" width="22" height="22" fill="none" stroke="#111" stroke-width="2.5"></rect><rect x="7" y="35" width="22" height="22" fill="none" stroke="#111" stroke-width="2.5"></rect><rect x="33.75" y="33.75" width="24.5" height="24.5" fill="#b68235"></rect></svg><span style="font-weight: 800; font-size: 18px; letter-spacing: -0.03em;">Profit Monitr</span></a></sc-if>
+      <div style="margin-left: auto; display: flex; gap: 8px; align-items: center; font-size: 14px; color: #666;"><span>{{ switchPrompt }}</span><button type="button" onClick="{{ switchMode }}" style="font: 600 14px/1 'Figtree', sans-serif; background: #fff; border: 1.5px solid #111; border-radius: 999px; padding: 10px 16px; cursor: pointer;">{{ switchLabel }}</button></div>
+    </div>
+
+    <div style="width: 100%; max-width: 560px; margin: clamp(28px, 5vw, 64px) 0 0;">
+      <sc-if value="{{ isSignup }}" hint-placeholder-val="{{ true }}">
+        <sc-if value="{{ notDone }}" hint-placeholder-val="{{ true }}">
+          <div style="height: 6px; border-radius: 999px; background: #f4f4f2; margin-bottom: 32px;"><div style="height: 100%; width: {{ progW }}; border-radius: 999px; background: #111; transition: width 600ms cubic-bezier(.2,.7,.2,1);"></div></div>
+        </sc-if>
+        <form onSubmit="{{ nextStep }}" novalidate="novalidate">
+          <sc-if value="{{ step1 }}" hint-placeholder-val="{{ true }}">
+            <div style="display: grid; gap: 18px;">
+              <div><div style="font-size: 13px; font-weight: 600; color: #666; letter-spacing: .04em;">STEP 1 OF 3</div><h2 style="font-size: clamp(30px, 3.4vw, 42px); font-weight: 800; line-height: 1; letter-spacing: -0.04em; margin: 10px 0 0;">Create your account</h2></div>
+              <label style="display: grid; gap: 6px; font-size: 14px; font-weight: 600;">Full name<input name="name" autocomplete="name" value="{{ f.name }}" onChange="{{ onField }}" placeholder="Alex Rivera" style="font: 500 15px 'Figtree', sans-serif; min-height: 50px; padding: 0 16px; border-radius: 14px; border: 1.5px solid {{ eb.name }}; background: #fff; width: 100%;"><span style="font-size: 13px; font-weight: 500; color: #c0392b; min-height: 1em;">{{ err.name }}</span></label>
+              <label style="display: grid; gap: 6px; font-size: 14px; font-weight: 600;">Work email<input type="email" name="email" autocomplete="email" value="{{ f.email }}" onChange="{{ onField }}" placeholder="you@yourvenue.com" style="font: 500 15px 'Figtree', sans-serif; min-height: 50px; padding: 0 16px; border-radius: 14px; border: 1.5px solid {{ eb.email }}; background: #fff; width: 100%;"><span style="font-size: 13px; font-weight: 500; color: #c0392b; min-height: 1em;">{{ err.email }}</span></label>
+              <label style="display: grid; gap: 6px; font-size: 14px; font-weight: 600;">Password<input type="password" name="password" autocomplete="new-password" value="{{ f.password }}" onChange="{{ onField }}" placeholder="At least 8 characters" style="font: 500 15px 'Figtree', sans-serif; min-height: 50px; padding: 0 16px; border-radius: 14px; border: 1.5px solid {{ eb.password }}; background: #fff; width: 100%;">
+                <span style="display: grid; grid-template-columns: repeat(4, 1fr) auto; gap: 4px; align-items: center; margin-top: 4px;"><span style="height: 5px; border-radius: 999px; background: {{ pw.b1 }}; transition: background 300ms;"></span><span style="height: 5px; border-radius: 999px; background: {{ pw.b2 }}; transition: background 300ms;"></span><span style="height: 5px; border-radius: 999px; background: {{ pw.b3 }}; transition: background 300ms;"></span><span style="height: 5px; border-radius: 999px; background: {{ pw.b4 }}; transition: background 300ms;"></span><span style="font-size: 12px; font-weight: 500; margin-left: 8px; color: #666;">{{ pw.label }}</span></span>
+                <span style="font-size: 13px; font-weight: 500; color: #c0392b; min-height: 1em;">{{ err.password }}</span></label>
+              <button type="submit" style="font: 600 15px/1 'Figtree', sans-serif; background: #111; color: #fff; border: 0; border-radius: 999px; padding: 16px 24px; cursor: pointer; justify-self: start;">Continue →</button>
+            </div>
+          </sc-if>
+          <sc-if value="{{ step2 }}" hint-placeholder-val="{{ false }}">
+            <div style="display: grid; gap: 18px;">
+              <div><div style="font-size: 13px; font-weight: 600; color: #666; letter-spacing: .04em;">STEP 2 OF 3</div><h2 style="font-size: clamp(30px, 3.4vw, 42px); font-weight: 800; line-height: 1; letter-spacing: -0.04em; margin: 10px 0 0;">Tell us about your venue</h2></div>
+              <label style="display: grid; gap: 6px; font-size: 14px; font-weight: 600;">Venue name<input name="venue" value="{{ f.venue }}" onChange="{{ onField }}" placeholder="The Copper Room" style="font: 500 15px 'Figtree', sans-serif; min-height: 50px; padding: 0 16px; border-radius: 14px; border: 1.5px solid {{ eb.venue }}; background: #fff; width: 100%;"><span style="font-size: 13px; font-weight: 500; color: #c0392b; min-height: 1em;">{{ err.venue }}</span></label>
+              <div style="display: grid; gap: 8px;"><span style="font-size: 14px; font-weight: 600;">Venue type</span><div style="display: flex; flex-wrap: wrap; gap: 8px;"><sc-for list="{{ typeChips }}" as="c" hint-placeholder-count="5"><button type="button" onClick="{{ c.on }}" style="font: 600 14px/1 'Figtree', sans-serif; border-radius: 999px; padding: 11px 16px; cursor: pointer; border: 1.5px solid {{ c.bd }}; background: {{ c.bg }}; color: {{ c.fc }};">{{ c.label }}</button></sc-for></div></div>
+              <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); gap: 16px;">
+                <label style="display: grid; gap: 6px; font-size: 14px; font-weight: 600;">City<input name="city" value="{{ f.city }}" onChange="{{ onField }}" placeholder="Austin, TX" style="font: 500 15px 'Figtree', sans-serif; min-height: 50px; padding: 0 16px; border-radius: 14px; border: 1.5px solid {{ eb.city }}; background: #fff; width: 100%;"><span style="font-size: 13px; font-weight: 500; color: #c0392b; min-height: 1em;">{{ err.city }}</span></label>
+                <label style="display: grid; gap: 6px; font-size: 14px; font-weight: 600;">Current website <span style="font-weight: 500; color: #888;">(optional)</span><input name="website" value="{{ f.website }}" onChange="{{ onField }}" placeholder="yourvenue.com" style="font: 500 15px 'Figtree', sans-serif; min-height: 50px; padding: 0 16px; border-radius: 14px; border: 1.5px solid #ececea; background: #fff; width: 100%;"><span style="min-height: 1em;"></span></label>
+              </div>
+              <div style="display: grid; gap: 8px;"><span style="font-size: 14px; font-weight: 600;">What do you sell?</span><div style="display: flex; flex-wrap: wrap; gap: 8px;"><sc-for list="{{ sellChips }}" as="c" hint-placeholder-count="2"><button type="button" onClick="{{ c.on }}" style="font: 600 14px/1 'Figtree', sans-serif; border-radius: 999px; padding: 11px 16px; cursor: pointer; border: 1.5px solid {{ c.bd }}; background: {{ c.bg }}; color: {{ c.fc }};">{{ c.label }}</button></sc-for></div><span style="font-size: 13px; font-weight: 500; color: #c0392b; min-height: 1em;">{{ err.sells }}</span></div>
+              <div style="display: grid; gap: 8px;"><span style="font-size: 14px; font-weight: 600;">Where do you promote today?</span><div style="display: flex; flex-wrap: wrap; gap: 8px;"><sc-for list="{{ promoChips }}" as="c" hint-placeholder-count="7"><button type="button" onClick="{{ c.on }}" style="font: 600 14px/1 'Figtree', sans-serif; border-radius: 999px; padding: 11px 16px; cursor: pointer; border: 1.5px solid {{ c.bd }}; background: {{ c.bg }}; color: {{ c.fc }};">{{ c.label }}</button></sc-for></div></div>
+              <div style="display: flex; gap: 10px; flex-wrap: wrap;"><button type="button" onClick="{{ back }}" style="font: 600 15px/1 'Figtree', sans-serif; background: #fff; border: 1.5px solid #111; border-radius: 999px; padding: 14px 22px; cursor: pointer;">Back</button><button type="submit" style="font: 600 15px/1 'Figtree', sans-serif; background: #111; color: #fff; border: 0; border-radius: 999px; padding: 16px 24px; cursor: pointer;">Continue →</button></div>
+            </div>
+          </sc-if>
+          <sc-if value="{{ step3 }}" hint-placeholder-val="{{ false }}">
+            <div style="display: grid; gap: 18px;">
+              <div><div style="font-size: 13px; font-weight: 600; color: #666; letter-spacing: .04em;">STEP 3 OF 3</div><h2 style="font-size: clamp(30px, 3.4vw, 42px); font-weight: 800; line-height: 1; letter-spacing: -0.04em; margin: 10px 0 0;">Billing</h2><p style="font-size: 14px; margin: 10px 0 0; color: #666;">Prototype — no payment is processed. Try 4242 4242 4242 4242.</p></div>
+              <label style="display: grid; gap: 6px; font-size: 14px; font-weight: 600;">Name on card<input name="cardName" autocomplete="cc-name" value="{{ f.cardName }}" onChange="{{ onField }}" style="font: 500 15px 'Figtree', sans-serif; min-height: 50px; padding: 0 16px; border-radius: 14px; border: 1.5px solid {{ eb.cardName }}; background: #fff; width: 100%;"><span style="font-size: 13px; font-weight: 500; color: #c0392b; min-height: 1em;">{{ err.cardName }}</span></label>
+              <label style="display: grid; gap: 6px; font-size: 14px; font-weight: 600;">Card number<input name="card" inputmode="numeric" autocomplete="cc-number" value="{{ f.card }}" onChange="{{ onField }}" placeholder="1234 5678 9012 3456" style="font: 500 15px 'Figtree', sans-serif; letter-spacing: .04em; min-height: 50px; padding: 0 16px; border-radius: 14px; border: 1.5px solid {{ eb.card }}; background: #fff; width: 100%;"><span style="font-size: 13px; font-weight: 500; color: #c0392b; min-height: 1em;">{{ err.card }}</span></label>
+              <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px;">
+                <label style="display: grid; gap: 6px; font-size: 14px; font-weight: 600;">Expiry<input name="exp" inputmode="numeric" autocomplete="cc-exp" value="{{ f.exp }}" onChange="{{ onField }}" placeholder="MM/YY" style="font: 500 15px 'Figtree', sans-serif; min-height: 50px; padding: 0 14px; border-radius: 14px; border: 1.5px solid {{ eb.exp }}; background: #fff; width: 100%;"><span style="font-size: 13px; font-weight: 500; color: #c0392b; min-height: 1em;">{{ err.exp }}</span></label>
+                <label style="display: grid; gap: 6px; font-size: 14px; font-weight: 600;">CVC<input name="cvc" inputmode="numeric" autocomplete="cc-csc" value="{{ f.cvc }}" onChange="{{ onField }}" placeholder="123" style="font: 500 15px 'Figtree', sans-serif; min-height: 50px; padding: 0 14px; border-radius: 14px; border: 1.5px solid {{ eb.cvc }}; background: #fff; width: 100%;"><span style="font-size: 13px; font-weight: 500; color: #c0392b; min-height: 1em;">{{ err.cvc }}</span></label>
+                <label style="display: grid; gap: 6px; font-size: 14px; font-weight: 600;">ZIP<input name="zip" autocomplete="postal-code" value="{{ f.zip }}" onChange="{{ onField }}" style="font: 500 15px 'Figtree', sans-serif; min-height: 50px; padding: 0 14px; border-radius: 14px; border: 1.5px solid {{ eb.zip }}; background: #fff; width: 100%;"><span style="font-size: 13px; font-weight: 500; color: #c0392b; min-height: 1em;">{{ err.zip }}</span></label>
+              </div>
+              <div style="display: flex; justify-content: space-between; align-items: baseline; padding: 16px 18px; border-radius: 16px; background: #f4f4f2;"><span style="font-weight: 600;">Due today</span><span style="font-size: 24px; font-weight: 800; letter-spacing: -0.03em;">$39.99</span></div>
+              <label style="display: flex; gap: 12px; align-items: flex-start; font-size: 14px; line-height: 1.5; cursor: pointer;"><input type="checkbox" name="agree" checked="{{ f.agree }}" onChange="{{ onField }}" style="margin-top: 3px; flex: none; width: 18px; height: 18px; accent-color: #111;"><span>I agree to the Terms and authorize a recurring charge of $39.99 per month.</span></label>
+              <div style="font-size: 13px; font-weight: 500; color: #c0392b; margin-top: -10px; min-height: 1em;">{{ err.agree }}</div>
+              <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                <button type="button" onClick="{{ back }}" style="font: 600 15px/1 'Figtree', sans-serif; background: #fff; border: 1.5px solid #111; border-radius: 999px; padding: 14px 22px; cursor: pointer;">Back</button>
+                <sc-if value="{{ notSubmitting }}" hint-placeholder-val="{{ true }}"><button type="submit" style="font: 600 15px/1 'Figtree', sans-serif; background: #111; color: #fff; border: 0; border-radius: 999px; padding: 16px 24px; cursor: pointer;">Start my subscription →</button></sc-if>
+                <sc-if value="{{ submitting }}" hint-placeholder-val="{{ false }}"><button type="button" disabled="disabled" style="font: 600 15px/1 'Figtree', sans-serif; background: #111; color: #fff; border: 0; border-radius: 999px; padding: 16px 24px; display: inline-flex; align-items: center; gap: 10px;"><span style="width: 14px; height: 14px; border-radius: 50%; border: 2px solid rgba(255,255,255,.35); border-top-color: #fff; animation: mn-spin 800ms linear infinite; display: block;"></span>Creating your account…</button></sc-if>
+              </div>
+            </div>
+          </sc-if>
+        </form>
+        <sc-if value="{{ step4 }}" hint-placeholder-val="{{ false }}">
+          <div style="display: grid; gap: 26px;">
+            <div style="width: 64px; height: 64px; border-radius: 50%; background: #c9f2dc; display: grid; place-items: center;"><svg viewBox="0 0 24 24" style="width: 30px; height: 30px; fill: none; stroke: #111; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; display: block;"><path d="M20 6 9 17l-5-5"></path></svg></div>
+            <div><h2 style="font-size: clamp(34px, 4vw, 52px); font-weight: 800; line-height: 1; letter-spacing: -0.045em; margin: 0;">You're in, {{ firstName }}.</h2><p style="font-size: 17px; line-height: 1.55; margin: 14px 0 0; color: #555;">We're setting up {{ venueName }} right now.</p></div>
+            <div style="display: grid; gap: 8px;">
+              <div style="display: flex; gap: 14px; align-items: center; padding: 14px 18px; border-radius: 16px; background: #f4f4f2; opacity: {{ su.o1 }}; transform: {{ su.t1 }}; transition: opacity 500ms, transform 500ms;"><svg viewBox="0 0 24 24" style="width: 18px; height: 18px; fill: none; stroke: #111; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; display: block; flex: none;"><path d="M20 6 9 17l-5-5"></path></svg><span style="font-weight: 600; font-size: 15px;">Account created</span></div>
+              <div style="display: flex; gap: 14px; align-items: center; padding: 14px 18px; border-radius: 16px; background: #f4f4f2; opacity: {{ su.o2 }}; transform: {{ su.t2 }}; transition: opacity 500ms, transform 500ms;"><svg viewBox="0 0 24 24" style="width: 18px; height: 18px; fill: none; stroke: #111; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; display: block; flex: none;"><path d="M20 6 9 17l-5-5"></path></svg><span style="font-weight: 600; font-size: 15px;">Reservations &amp; ticketing workspace ready</span></div>
+              <div style="display: flex; gap: 14px; align-items: center; padding: 14px 18px; border-radius: 16px; background: #f4f4f2; opacity: {{ su.o3 }}; transform: {{ su.t3 }}; transition: opacity 500ms, transform 500ms;"><svg viewBox="0 0 24 24" style="width: 18px; height: 18px; fill: none; stroke: #111; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; display: block; flex: none;"><path d="M20 6 9 17l-5-5"></path></svg><span style="font-weight: 600; font-size: 15px;">First tracked link: {{ firstLink }}</span></div>
+              <div style="display: flex; gap: 14px; align-items: center; padding: 14px 18px; border-radius: 16px; background: #f4f4f2; opacity: {{ su.o4 }}; transform: {{ su.t4 }}; transition: opacity 500ms, transform 500ms;"><svg viewBox="0 0 24 24" style="width: 18px; height: 18px; fill: none; stroke: #111; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; display: block; flex: none;"><path d="M20 6 9 17l-5-5"></path></svg><span style="font-weight: 600; font-size: 15px;">First weekly brief scheduled for {{ firstReport }}</span></div>
+            </div>
+            <a href="Monitr App.dc.html" style="font: 600 15px/1 'Figtree', sans-serif; background: #111; color: #fff; border-radius: 999px; padding: 16px 24px; justify-self: start; opacity: {{ suReady }}; transition: opacity 400ms;">Go to your dashboard →</a>
+          </div>
+        </sc-if>
+      </sc-if>
+
+      <sc-if value="{{ isLogin }}" hint-placeholder-val="{{ false }}">
+        <form onSubmit="{{ doLogin }}" novalidate="novalidate" style="display: grid; gap: 18px; max-width: 440px;">
+          <h2 style="font-size: clamp(30px, 3.4vw, 42px); font-weight: 800; line-height: 1; letter-spacing: -0.04em; margin: 0;">Log in</h2>
+          <label style="display: grid; gap: 6px; font-size: 14px; font-weight: 600;">Email<input type="email" name="email" autocomplete="email" value="{{ lf.email }}" onChange="{{ onLoginField }}" placeholder="you@yourvenue.com" style="font: 500 15px 'Figtree', sans-serif; min-height: 50px; padding: 0 16px; border-radius: 14px; border: 1.5px solid #ececea; background: #fff; width: 100%;"></label>
+          <label style="display: grid; gap: 6px; font-size: 14px; font-weight: 600;">Password<input type="password" name="password" autocomplete="current-password" value="{{ lf.password }}" onChange="{{ onLoginField }}" style="font: 500 15px 'Figtree', sans-serif; min-height: 50px; padding: 0 16px; border-radius: 14px; border: 1.5px solid #ececea; background: #fff; width: 100%;"></label>
+          <div style="font-size: 13px; font-weight: 500; color: #c0392b; min-height: 1em;">{{ lErr }}</div>
+          <button type="submit" style="font: 600 15px/1 'Figtree', sans-serif; background: #111; color: #fff; border: 0; border-radius: 999px; padding: 16px 24px; cursor: pointer; justify-self: start;">Log in →</button>
+          <div style="font-size: 14px; color: #666;">Demo: <b>demo@copperroom.com</b> / <b>monitr123</b></div>
+        </form>
+      </sc-if>
+    </div>
+  </main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;mode&quot;:{&quot;editor&quot;:&quot;enum&quot;,&quot;default&quot;:&quot;signup&quot;,&quot;options&quot;:[&quot;signup&quot;,&quot;login&quot;],&quot;tsType&quot;:&quot;string&quot;,&quot;section&quot;:&quot;Screen&quot;}}">
+class Component extends DCLogic {
+  static TYPES = ['Restaurant', 'Bar & lounge', 'Nightclub', 'Event venue', 'Other'];
+  static SELLS = ['Table reservations', 'Event tickets'];
+  static PROMOS = ['Instagram', 'TikTok', 'Email', 'Google', 'Paid social', 'Influencers', 'Promoters'];
+  state = { mode: 'signup', step: 1, submitting: false, w: typeof window !== 'undefined' ? window.innerWidth : 1280, f: { name: '', email: '', password: '', venue: '', vtype: 'Restaurant', city: '', website: '', sells: ['Table reservations'], promos: [], cardName: '', card: '', exp: '', cvc: '', zip: '', agree: false }, err: {}, su: 0, lf: { email: '', password: '' }, lErr: '' };
+  componentDidMount() {
+    const q = new URLSearchParams(location.search); if (q.get('mode') === 'login' || this.props.mode === 'login') this.setState({ mode: 'login' });
+    this.onResize = () => this.setState({ w: window.innerWidth }); window.addEventListener('resize', this.onResize);
+  }
+  componentWillUnmount() { window.removeEventListener('resize', this.onResize); clearInterval(this.suT); }
+  validate(step) {
+    const f = this.state.f, e = {};
+    if (step === 1) { if (f.name.trim().length < 2) e.name = 'Please enter your name.'; if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(f.email)) e.email = 'Enter a valid email.'; if (f.password.length < 8) e.password = 'Use at least 8 characters.'; }
+    if (step === 2) { if (f.venue.trim().length < 2) e.venue = 'What is your venue called?'; if (f.city.trim().length < 2) e.city = 'Which city?'; if (!f.sells.length) e.sells = 'Pick at least one.'; }
+    if (step === 3) { if (f.cardName.trim().length < 2) e.cardName = 'Name as it appears on the card.'; if (f.card.replace(/\D/g, '').length !== 16) e.card = 'Enter a 16-digit card number.'; if (!/^(0[1-9]|1[0-2])\/\d{2}$/.test(f.exp)) e.exp = 'MM/YY'; if (!/^\d{3,4}$/.test(f.cvc)) e.cvc = '3–4 digits'; if (f.zip.trim().length < 3) e.zip = 'Required'; if (!f.agree) e.agree = 'Please agree to continue.'; }
+    return e;
+  }
+  pwScore() { const p = this.state.f.password; let s = 0; if (p.length >= 8) s++; if (/[A-Z]/.test(p)) s++; if (/\d/.test(p)) s++; if (/[^A-Za-z0-9]/.test(p)) s++; return p ? Math.max(1, s) : 0; }
+  renderVals() {
+    const s = this.state, f = s.f, wide = s.w >= 880;
+    const v = { wide, narrow: !wide, cols: wide ? '300px minmax(0, 1fr)' : 'minmax(0, 1fr)', isSignup: s.mode === 'signup', isLogin: s.mode === 'login', f, err: s.err, lf: s.lf, lErr: s.lErr };
+    v.switchPrompt = s.mode === 'signup' ? 'Already have an account?' : 'New to Profit Monitr?';
+    v.switchLabel = s.mode === 'signup' ? 'Log in' : 'Create account';
+    v.switchMode = () => this.setState({ mode: s.mode === 'signup' ? 'login' : 'signup', err: {}, lErr: '' });
+    v.step1 = s.step === 1; v.step2 = s.step === 2; v.step3 = s.step === 3; v.step4 = s.step === 4; v.notDone = s.step < 4;
+    v.progW = ['0%', '33%', '66%', '100%', '100%'][s.step];
+    v.st = {}; [1, 2, 3].forEach(i => { const done = s.step > i, cur = s.step === i; v.st['s' + i] = { n: done ? '✓' : String(i), bg: cur ? 'rgba(255,255,255,.1)' : 'transparent', nbg: done ? '#c9f2dc' : cur ? '#fff' : 'rgba(255,255,255,.12)', nfc: done || cur ? '#111' : 'rgba(255,255,255,.7)', fc: cur || done ? '#fff' : 'rgba(255,255,255,.55)' }; });
+    v.eb = {}; ['name', 'email', 'password', 'venue', 'city', 'cardName', 'card', 'exp', 'cvc', 'zip'].forEach(k => v.eb[k] = s.err[k] ? '#c0392b' : '#ececea');
+    const sc = this.pwScore(), pc = ['#ececea', '#c0392b', '#e1ad66', '#8fd9b0', '#2ecc71'];
+    v.pw = { b1: sc >= 1 ? pc[sc] : '#ececea', b2: sc >= 2 ? pc[sc] : '#ececea', b3: sc >= 3 ? pc[sc] : '#ececea', b4: sc >= 4 ? pc[sc] : '#ececea', label: ['', 'Weak', 'Fair', 'Good', 'Strong'][sc] };
+    v.onField = e => { const t = e.target; let val = t.type === 'checkbox' ? t.checked : t.value; if (t.name === 'card') val = val.replace(/\D/g, '').slice(0, 16).replace(/(\d{4})(?=\d)/g, '$1 '); if (t.name === 'exp') { val = val.replace(/\D/g, '').slice(0, 4); if (val.length > 2) val = val.slice(0, 2) + '/' + val.slice(2); } this.setState(st => ({ f: Object.assign({}, st.f, { [t.name]: val }), err: Object.assign({}, st.err, { [t.name]: '' }) })); };
+    const chip = (label, on, fn) => ({ label, on: fn, bd: on ? '#111' : '#ececea', bg: on ? '#111' : '#fff', fc: on ? '#fff' : '#111' });
+    v.typeChips = Component.TYPES.map(t => chip(t, f.vtype === t, () => this.setState(st => ({ f: Object.assign({}, st.f, { vtype: t }) }))));
+    const toggle = (key, item) => this.setState(st => { const arr = st.f[key].includes(item) ? st.f[key].filter(x => x !== item) : st.f[key].concat(item); return { f: Object.assign({}, st.f, { [key]: arr }), err: Object.assign({}, st.err, { sells: '' }) }; });
+    v.sellChips = Component.SELLS.map(t => chip(t, f.sells.includes(t), () => toggle('sells', t)));
+    v.promoChips = Component.PROMOS.map(t => chip(t, f.promos.includes(t), () => toggle('promos', t)));
+    v.back = () => this.setState(st => ({ step: Math.max(1, st.step - 1), err: {} }));
+    v.nextStep = e => { e.preventDefault(); const err = this.validate(s.step); if (Object.keys(err).length) { this.setState({ err }); return; } if (s.step < 3) { this.setState({ step: s.step + 1, err: {} }); window.scrollTo(0, 0); return; } this.setState({ submitting: true }); setTimeout(() => { try { const all = JSON.parse(localStorage.getItem('tpm_accounts') || '[]'); all.push({ name: f.name, email: f.email.trim().toLowerCase(), password: f.password, venue: f.venue, created: Date.now() }); localStorage.setItem('tpm_accounts', JSON.stringify(all)); } catch (_) {} this.setState({ submitting: false, step: 4, su: 0 }); let i = 0; this.suT = setInterval(() => { i++; this.setState({ su: i }); if (i >= 4) clearInterval(this.suT); }, 550); }, 1400); };
+    v.submitting = s.submitting; v.notSubmitting = !s.submitting;
+    v.firstName = (f.name.trim().split(' ')[0]) || 'there'; v.venueName = f.venue || 'your venue';
+    v.firstLink = 'monitr.link/' + (f.venue || 'yourvenue').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 18) + '/ig';
+    const d = new Date(); d.setDate(d.getDate() + (((8 - d.getDay()) % 7) || 7)); v.firstReport = d.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
+    v.su = {}; [1, 2, 3, 4].forEach(i => { const on = s.su >= i; v.su['o' + i] = on ? 1 : 0; v.su['t' + i] = on ? 'none' : 'translateY(8px)'; }); v.suReady = s.su >= 4 ? 1 : 0;
+    v.onLoginField = e => { const t = e.target; this.setState(st => ({ lf: Object.assign({}, st.lf, { [t.name]: t.value }), lErr: '' })); };
+    v.doLogin = e => { e.preventDefault(); const em = s.lf.email.trim().toLowerCase(); let ok = em === 'demo@copperroom.com' && s.lf.password === 'monitr123'; try { const all = JSON.parse(localStorage.getItem('tpm_accounts') || '[]'); ok = ok || all.some(a => a.email === em && a.password === s.lf.password); } catch (_) {} if (!ok) { this.setState({ lErr: 'We couldn’t find that email and password.' }); return; } location.href = 'Monitr App.dc.html'; };
+    return v;
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,595 @@
+/* Landing page — values transcribed from docs/design-handoff/Profit Monitr Landing v2.dc.html */
+
+.ld-canvas {
+  background: var(--paper);
+  border-radius: var(--r-frame);
+  /* clip (not hidden) keeps the rounded corners without trapping the sticky header */
+  overflow: clip;
+}
+
+.ld-wrap {
+  max-width: var(--content-max);
+  margin: 0 auto;
+  padding: var(--section-y) var(--section-x);
+}
+
+.ld-alt {
+  background: var(--canvas-alt);
+}
+
+/* links styled as pills keep the reference's natural line-height */
+.ld-pill {
+  display: inline-block;
+  font-size: 15px;
+  font-weight: 600;
+  border-radius: var(--r-pill);
+  white-space: nowrap;
+  cursor: pointer;
+}
+.ld-pill-solid {
+  padding: 16px 24px;
+  background: var(--ink);
+  color: var(--paper);
+  border: 0;
+}
+.ld-pill-solid:hover {
+  color: var(--paper);
+}
+.ld-pill-outline {
+  padding: 14px 22px;
+  border: var(--border-ink);
+  background: transparent;
+  color: var(--ink);
+}
+.ld-pill-white {
+  padding: 16px 24px;
+  background: var(--paper);
+  color: var(--ink);
+}
+.ld-pill-white:hover {
+  color: var(--ink);
+}
+
+/* ── header ───────────────────────────────────────────────────────────── */
+.ld-header {
+  position: sticky;
+  top: 0;
+  z-index: 20;
+  background: var(--header-glass);
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  border-bottom: var(--border-card);
+}
+.ld-nav {
+  max-width: var(--content-max);
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  gap: clamp(16px, 2.5vw, 28px);
+  padding: 16px var(--section-x);
+}
+.ld-home {
+  margin-right: auto;
+}
+.ld-nav-links {
+  display: flex;
+  gap: clamp(14px, 2vw, 26px);
+  font-size: 15px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+.ld-nav-links a {
+  color: var(--text-body);
+}
+.ld-nav-cta {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  white-space: nowrap;
+}
+.ld-nav-cta .ld-pill {
+  font-size: 14px;
+}
+.ld-nav-cta .ld-pill-outline {
+  padding: 12px 18px;
+}
+.ld-nav-cta .ld-pill-solid {
+  padding: 13px 18px;
+}
+@media (max-width: 960px) {
+  .ld-nav-links {
+    display: none;
+  }
+}
+@media (max-width: 480px) {
+  /* Nothing in the header wraps or clips: on a phone the header keeps the logo and the
+     primary action; "Log in" stays one tap away in the footer. */
+  .ld-nav {
+    gap: 10px;
+  }
+  .ld-home .logo {
+    font-size: 18px !important;
+  }
+  .ld-nav-cta .ld-pill-outline {
+    display: none;
+  }
+}
+
+/* ── hero ─────────────────────────────────────────────────────────────── */
+.ld-hero {
+  max-width: var(--content-max);
+  margin: 0 auto;
+  padding: clamp(48px, 7vw, 96px) var(--section-x) clamp(40px, 5vw, 72px);
+  display: grid;
+  grid-template-columns: minmax(0, 1.25fr) auto;
+  gap: clamp(28px, 5vw, 80px);
+  align-items: center;
+}
+.ld-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  padding: 8px 14px;
+  border-radius: var(--r-pill);
+  background: var(--canvas-alt);
+}
+.ld-h1 {
+  font-size: var(--fs-display);
+  font-weight: 800;
+  line-height: 0.98;
+  letter-spacing: -0.04em;
+  margin: 24px 0 0;
+  max-width: 13ch;
+}
+.ld-mark {
+  display: inline-block;
+  line-height: 1;
+  padding: 2px 12px 6px;
+  border-radius: 16px;
+}
+.ld-mark-mint {
+  background: var(--mint);
+}
+.ld-mark-lavender {
+  background: var(--lavender);
+}
+.ld-hero-body {
+  font-size: clamp(17px, 1.4vw, 19px);
+  line-height: 1.55;
+  margin: 28px 0 0;
+  max-width: 46ch;
+  color: var(--text-body);
+}
+.ld-cta-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 32px;
+}
+.ld-footnotes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 20px;
+  margin-top: 22px;
+  font-size: 13px;
+  color: var(--text-label);
+}
+.ld-phone-col {
+  justify-self: end;
+  display: grid;
+  justify-items: center;
+  gap: 14px;
+}
+.ld-phone {
+  position: relative;
+  width: clamp(230px, 26vw, 330px);
+  aspect-ratio: 9 / 16;
+  background: var(--ink);
+  border-radius: 40px;
+  padding: 10px;
+  box-shadow: var(--shadow-phone);
+}
+.ld-screen {
+  position: absolute;
+  inset: 10px;
+  border-radius: 31px;
+  overflow: hidden;
+  background: var(--paper);
+}
+.ld-film {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  background: var(--paper);
+}
+.ld-film-caption {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--text-faint);
+}
+@media (max-width: 720px) {
+  /* the phone drops under the copy and centres */
+  .ld-hero {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .ld-phone-col {
+    justify-self: center;
+  }
+}
+
+/* ── three promises ───────────────────────────────────────────────────── */
+.ld-promises {
+  max-width: var(--content-max);
+  margin: 0 auto;
+  padding: 0 var(--section-x) var(--section-y);
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 230px), 1fr));
+  gap: var(--gap-card);
+}
+.ld-pod {
+  border-radius: var(--r-pod);
+  padding: 28px;
+}
+.ld-pod-n {
+  font-size: 13px;
+  font-weight: 600;
+}
+.ld-pod-title {
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: -0.025em;
+  line-height: 1.1;
+  margin-top: 44px;
+  color: var(--ink);
+}
+.ld-pod p {
+  font-size: 15px;
+  line-height: 1.5;
+  margin: 10px 0 0;
+}
+.ld-pod-mint {
+  background: var(--mint);
+  color: var(--mint-ink);
+}
+.ld-pod-lavender {
+  background: var(--lavender);
+  color: var(--lavender-ink);
+}
+.ld-pod-butter {
+  background: var(--butter);
+  color: var(--butter-ink);
+}
+
+/* ── section headings ─────────────────────────────────────────────────── */
+.ld-h2 {
+  font-size: var(--fs-h2);
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.035em;
+  margin: 14px 0 0;
+}
+.ld-head-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px 40px;
+  align-items: flex-end;
+  justify-content: space-between;
+}
+.ld-head-row > p {
+  font-size: 16px;
+  line-height: 1.5;
+  color: var(--text-body);
+  max-width: 40ch;
+}
+.ld-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
+  gap: var(--gap-card);
+  margin-top: 40px;
+}
+.ld-card {
+  background: var(--paper);
+  border-radius: var(--r-pod);
+  padding: 28px;
+}
+
+/* ── how it works ─────────────────────────────────────────────────────── */
+.ld-step {
+  display: grid;
+  gap: 14px;
+  align-content: start;
+}
+.ld-step-n {
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  background: var(--ink);
+  color: var(--paper);
+  display: grid;
+  place-items: center;
+  font-weight: 800;
+  font-size: 15px;
+}
+.ld-step-title {
+  font-size: 22px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+  margin-top: 12px;
+}
+.ld-step p {
+  font-size: 15px;
+  line-height: 1.55;
+  color: var(--text-body);
+}
+
+/* ── the weekly brief ─────────────────────────────────────────────────── */
+.ld-brief {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 380px), 1fr));
+  gap: clamp(32px, 5vw, 80px);
+  align-items: center;
+}
+.ld-brief-body {
+  font-size: 17px;
+  line-height: 1.55;
+  margin: 22px 0 0;
+  max-width: 48ch;
+  color: var(--text-body);
+}
+.ld-brief-rows {
+  display: grid;
+  gap: 10px;
+  margin-top: 28px;
+  max-width: 460px;
+}
+.ld-brief-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 14px 18px;
+  border: var(--border-card);
+  border-radius: var(--r-row);
+  font-size: 15px;
+}
+.ld-brief-row span {
+  color: var(--text-label);
+}
+.ld-dark-card {
+  background: var(--ink);
+  color: var(--paper);
+  border-radius: var(--r-pod-lg);
+  padding: 28px;
+  min-width: 0;
+}
+.ld-dark-meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  font-size: 13px;
+  color: var(--on-dark-60);
+}
+.ld-dark-delta {
+  background: var(--mint);
+  color: var(--ink);
+  border-radius: var(--r-pill);
+  padding: 4px 10px;
+  font-weight: 700;
+}
+.ld-dark-headline {
+  font-size: clamp(26px, 2.6vw, 34px);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1.05;
+  margin-top: 16px;
+}
+.ld-dark-bars {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 8px;
+  height: 96px;
+  margin-top: 22px;
+}
+.ld-dark-bars > div {
+  flex: 1;
+  max-width: 28px;
+  border-radius: var(--r-pill);
+  background: var(--dark-bar);
+}
+.ld-dark-bars > div.is-top {
+  background: var(--mint);
+}
+.ld-dark-kicker {
+  font-size: 13px;
+  color: var(--mint);
+  font-weight: 600;
+  margin-top: 22px;
+}
+.ld-dark-actions {
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
+}
+.ld-dark-action {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  align-items: center;
+  background: var(--dark-glass);
+  border-radius: var(--r-row);
+  padding: 12px 14px;
+  font-size: 14px;
+}
+.ld-dark-action > span:last-child {
+  color: var(--on-dark-60);
+  white-space: nowrap;
+}
+
+/* ── AI agents ────────────────────────────────────────────────────────── */
+.ld-agent-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-label);
+}
+.ld-agent-figure {
+  font-size: clamp(40px, 4vw, 56px);
+  font-weight: 800;
+  letter-spacing: -0.045em;
+  line-height: 1;
+  margin-top: 14px;
+  font-feature-settings: "tnum" 1;
+}
+.ld-agent-figure span {
+  color: var(--mint-ink);
+}
+.ld-agent p {
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--text-body);
+  margin: 12px 0 0;
+}
+.ld-footnote {
+  font-size: 13px;
+  color: var(--text-faint);
+  margin-top: 16px;
+}
+
+/* ── pricing ──────────────────────────────────────────────────────────── */
+.ld-pricing {
+  background: var(--lavender);
+  border-radius: var(--r-pod-lg);
+  padding: clamp(28px, 4vw, 48px);
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 360px), 1fr));
+  gap: clamp(28px, 4vw, 64px);
+  align-items: center;
+}
+.ld-pricing .kicker {
+  color: var(--lavender-ink);
+}
+.ld-price-row {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  margin-top: 14px;
+}
+.ld-price {
+  font-size: clamp(64px, 8vw, 112px);
+  font-weight: 800;
+  letter-spacing: -0.05em;
+  line-height: 1;
+  font-feature-settings: "tnum" 1;
+}
+.ld-price-per {
+  font-size: 16px;
+  color: var(--lavender-ink);
+}
+.ld-pricing-body {
+  font-size: 17px;
+  line-height: 1.55;
+  margin: 16px 0 0;
+  max-width: 40ch;
+  color: var(--lavender-ink);
+}
+.ld-pricing-cta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 26px;
+}
+.ld-pricing-cta form {
+  display: contents;
+}
+.ld-pricing-cta .ld-pill-solid {
+  padding: 15px 22px;
+}
+.ld-pricing-cta .ld-pill-outline {
+  padding: 13px 20px;
+  font-family: inherit;
+  /* a <button> defaults to line-height: normal on its own font; match the link beside it */
+  line-height: normal;
+}
+.ld-features {
+  display: grid;
+  gap: 8px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.ld-features li {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  background: var(--paper);
+  border-radius: var(--r-input);
+  padding: 12px 16px;
+  font-size: 15px;
+}
+
+/* ── close + footer ───────────────────────────────────────────────────── */
+.ld-close {
+  background: var(--ink);
+  color: var(--paper);
+}
+.ld-close-grid {
+  max-width: var(--content-max);
+  margin: 0 auto;
+  padding: clamp(72px, 9vw, 128px) var(--section-x) clamp(48px, 6vw, 72px);
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 380px), 1fr));
+  gap: 40px;
+  align-items: end;
+}
+.ld-close h2 {
+  font-size: clamp(44px, 6vw, 92px);
+  font-weight: 800;
+  line-height: 0.95;
+  letter-spacing: -0.045em;
+  max-width: 12ch;
+}
+.ld-close h2 span {
+  color: var(--mint);
+}
+.ld-close-side {
+  display: grid;
+  gap: 22px;
+  justify-items: start;
+}
+.ld-close-side p {
+  font-size: 18px;
+  line-height: 1.55;
+  max-width: 42ch;
+  color: var(--on-dark-72);
+}
+.ld-footer {
+  max-width: var(--content-max);
+  margin: 0 auto;
+  padding: 20px var(--section-x) 32px;
+  border-top: 1px solid var(--dark-rule);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px 28px;
+  align-items: center;
+  font-size: 13px;
+  color: var(--on-dark-60);
+}
+.ld-footer .logo {
+  color: var(--paper);
+}
+.ld-footer-links {
+  margin-left: auto;
+  display: flex;
+  gap: 20px;
+}
+.ld-footer-links a {
+  color: var(--paper);
+}
