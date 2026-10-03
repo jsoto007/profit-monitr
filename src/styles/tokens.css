@@ -101,6 +101,16 @@
   --dur-spin: 800ms;
 }
 
+/* Phones: the black frame gives way and the canvas runs edge to edge. Every page
+   reads its gutter and corner radius from these tokens, so the change is one place. */
+@media (max-width: 720px) {
+  :root {
+    --frame-pad: 0px;
+    --r-frame: 0px;
+    --r-app: 0px;
+  }
+}
+
 /* Hero film ("Likes Not Sales") — its own slightly deeper pastels, per likes-parts.jsx. */
 :root {
   --film-muted: #6b6b6b;

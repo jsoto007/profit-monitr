@@ -16,7 +16,7 @@
   gap: 28px;
   padding: 22px 14px 18px;
   color: var(--paper);
-  min-height: calc(100vh - 32px);
+  min-height: calc(100vh - 2 * var(--frame-pad));
 }
 .db-side form {
   margin-top: auto;
@@ -101,7 +101,7 @@
   background: var(--paper);
   border-radius: var(--r-app);
   padding: clamp(20px, 3vw, 36px) clamp(20px, 3vw, 40px) 48px;
-  min-height: calc(100vh - 32px);
+  min-height: calc(100vh - 2 * var(--frame-pad));
   min-width: 0;
 }
 .db-top {
