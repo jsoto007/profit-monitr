@@ -13,7 +13,8 @@ const SESSION_DAYS = 30;
  * "past_due" keeps access while the card is retried; anything else — pending,
  * canceled, unpaid, incomplete — is locked out.
  */
-const ACCESS = new Set(["active", "trialing", "past_due", "demo"]);
+/** "pilot" = a free pilot account (nothing is charged); "demo" = the shared public login. */
+const ACCESS = new Set(["active", "trialing", "past_due", "pilot", "demo"]);
 export const hasAccess = (status: string) => ACCESS.has(status);
 
 export type CurrentUser = NonNullable<Awaited<ReturnType<typeof loadUserByToken>>>;

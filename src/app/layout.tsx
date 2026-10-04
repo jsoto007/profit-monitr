@@ -1,8 +1,17 @@
 import type { Metadata, Viewport } from "next";
 import type { CSSProperties } from "react";
 import { Figtree } from "next/font/google";
+import Script from "next/script";
 import { SITE, siteUrl } from "@/data/site";
 import "./globals.css";
+
+/**
+ * Cookieless page analytics (Plausible, Umami or similar): the script URL and
+ * the site it reports for come from the environment, so nothing loads unless
+ * the operator has chosen a provider. No cookies, no consent banner.
+ */
+const ANALYTICS_SRC = process.env.NEXT_PUBLIC_ANALYTICS_SRC;
+const ANALYTICS_DOMAIN = process.env.NEXT_PUBLIC_ANALYTICS_DOMAIN;
 
 const figtree = Figtree({ subsets: ["latin"], display: "swap" });
 // Only the Figtree face itself goes into the stack (see --font-sans in tokens.css). next/font
@@ -24,7 +33,10 @@ export const viewport: Viewport = { themeColor: "#111111" };
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="en" style={{ "--font-figtree": figtreeFamily } as CSSProperties} data-scroll-behavior="smooth">
-      <body>{children}</body>
+      <body>
+        {children}
+        {ANALYTICS_SRC && <Script src={ANALYTICS_SRC} data-domain={ANALYTICS_DOMAIN} data-website-id={ANALYTICS_DOMAIN} strategy="afterInteractive" />}
+      </body>
     </html>
   );
 }

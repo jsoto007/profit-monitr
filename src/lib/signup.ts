@@ -3,7 +3,7 @@ import { createAccount, EmailTakenError } from "./accounts";
 import { FormError, HttpError, str } from "./api";
 import { db } from "./db";
 import { DEFAULT_TZ, isValidTimeZone } from "./time";
-import { cleanPromos, cleanSells, cleanVenueType, validateAccount, validateVenue, type Errors } from "./validation";
+import { cleanPromos, cleanSells, cleanVenueType, validateAccount, validateConsent, validateVenue, type Errors } from "./validation";
 
 export type SignupBody = {
   name?: string; email?: string; password?: string;
@@ -11,23 +11,20 @@ export type SignupBody = {
   sells?: string[]; promos?: string[];
   timezone?: string;
   agree?: boolean;
-  /** The card number, expiry and CVC never leave the browser — only these three are sent. */
-  card?: { name?: string; last4?: string; zip?: string };
 };
 
 const EMAIL_TAKEN = "An account with this email already exists. Log in instead.";
 
 /**
- * Billing is "demo" only: step 3 is the design handoff's prototype card form
- * and nothing is charged. Real subscription billing is not built yet (see
- * README → Open questions), so in production sign-up stays closed unless the
- * operator has explicitly accepted free accounts with ALLOW_DEMO_BILLING=1.
+ * Accounts are free pilots: no card is collected and nothing is charged.
+ * Subscription billing is not built (README → Billing), so in production
+ * sign-up stays closed unless the operator has opened it with ALLOW_SIGNUPS=1.
  */
 export function signupsOpen(): boolean {
-  return process.env.NODE_ENV !== "production" || process.env.ALLOW_DEMO_BILLING === "1";
+  return process.env.NODE_ENV !== "production" || process.env.ALLOW_SIGNUPS === "1";
 }
 
-/** Validates all three steps and creates the account. Nothing is charged. */
+/** Validates all three steps and creates the pilot account. Nothing is charged. */
 export async function signup(b: SignupBody) {
   if (!signupsOpen()) throw new HttpError(503, "Sign-ups aren’t open yet. Please check back soon.");
 
@@ -39,15 +36,11 @@ export async function signup(b: SignupBody) {
     city: str(b.city, 120),
     website: str(b.website, 200),
     sells: cleanSells(b.sells),
+    agree: b.agree === true,
   };
-  const e: Errors = { ...validateAccount(f), ...validateVenue(f) };
+  const e: Errors = { ...validateAccount(f), ...validateVenue(f), ...validateConsent(f) };
   // The demo login's address is reserved, and the unique index below is what finally decides.
   if (!e.email && (f.email === DEMO.email || (await db.user.findUnique({ where: { email: f.email }, select: { id: true } })))) e.email = EMAIL_TAKEN;
-  if (!b.agree) e.agree = "Please agree to continue.";
-  const last4 = str(b.card?.last4, 4);
-  if (str(b.card?.name, 120).length < 2) e.cardName = "Name as it appears on the card.";
-  if (!/^\d{4}$/.test(last4)) e.card = "Enter a 16-digit card number.";
-  if (str(b.card?.zip, 20).length < 3) e.zip = "Required";
   if (Object.keys(e).length) throw new FormError(e as Record<string, string>);
 
   try {
@@ -63,8 +56,7 @@ export async function signup(b: SignupBody) {
       sellsReservations: f.sells.includes("Table reservations"),
       sellsTickets: f.sells.includes("Event tickets"),
       promos: cleanPromos(b.promos),
-      cardLast4: last4,
-      subscriptionStatus: "demo",
+      subscriptionStatus: "pilot",
     });
   } catch (err) {
     if (err instanceof EmailTakenError) throw new FormError({ email: EMAIL_TAKEN });

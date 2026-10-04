@@ -37,10 +37,10 @@ services:
         value: monitr.link
       - key: CRON_SECRET
         generateValue: true
-      # Billing is the design's no-charge prototype: nobody is charged at sign-up.
-      # This switch says free accounts are accepted on this deployment. Remove it
-      # to close sign-ups (the demo login and existing accounts keep working).
-      - key: ALLOW_DEMO_BILLING
+      # Accounts are free pilots: no card, nothing charged. This switch opens
+      # sign-up on this deployment. Remove it to close sign-ups (the demo login
+      # and existing accounts keep working).
+      - key: ALLOW_SIGNUPS
         value: "1"
       # APP_URL is optional: the app falls back to Render's own RENDER_EXTERNAL_URL.
       # Set it once a custom domain is attached (canonical URLs, sitemap, emails).
@@ -50,6 +50,7 @@ services:
       # Optional integrations — add in the Render dashboard when ready (never commit values):
       #   RESEND_API_KEY, EMAIL_FROM                                              transactional email
       #   OPS_EMAIL                                                               where strategist-session requests go
+      #   NEXT_PUBLIC_ANALYTICS_SRC, NEXT_PUBLIC_ANALYTICS_DOMAIN                 cookieless page analytics (build-time: redeploy after setting)
 
   # Hourly on Mondays (UTC): each venue's weekly brief is built and emailed when it
   # is Monday morning in the venue's own time zone.

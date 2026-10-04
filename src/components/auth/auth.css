@@ -361,9 +361,32 @@
 .au-login .au-title {
   margin: 0;
 }
+/* "Just looking?" — a POST to the read-only demo venue, under the log-in form */
 .au-demo {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  margin-top: 28px;
+  padding-top: 22px;
+  border-top: var(--border-card);
+  max-width: 440px;
   font-size: 14px;
   color: var(--text-label);
+}
+/* step 3: what the free pilot is, in three lines */
+.au-pilot-list {
+  margin: 0;
+  padding: 0 0 0 20px;
+  display: grid;
+  gap: 8px;
+  font-size: 15px;
+  line-height: 1.5;
+  color: var(--text-body);
+}
+.au-consent a {
+  text-decoration: underline;
+  text-underline-offset: 3px;
 }
 
 @media (max-width: 879px) {

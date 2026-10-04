@@ -15,7 +15,7 @@ export async function makeAccount(over: Partial<NewAccount> = {}): Promise<Curre
   const user = await createAccount({
     name: "Dana Test", email: `owner${n}-${Date.now()}@example.test`, password: "correct horse 9!",
     venue: `Test Venue ${n}`, vtype: "Restaurant", city: "Brooklyn, NY", website: "", timezone: "America/New_York",
-    sellsReservations: true, sellsTickets: true, promos: ["Email"], cardLast4: "4242", subscriptionStatus: "demo",
+    sellsReservations: true, sellsTickets: true, promos: ["Email"], subscriptionStatus: "pilot",
     ...over,
   });
   return user as CurrentUser;

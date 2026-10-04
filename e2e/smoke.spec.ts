@@ -27,15 +27,23 @@ test("landing: message, sections, routing and SEO files", async ({ page, request
   await page.goto("/");
   await expect(page).toHaveTitle("Profit Monitr — Track what drives sales and reservations");
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Don't just track likes. Track what drives sales and reservations.");
-  for (const id of ["how", "brief", "agents", "pricing"]) await expect(page.locator(`#${id}`)).toBeVisible();
+  for (const id of ["how", "brief", "pricing"]) await expect(page.locator(`#${id}`)).toBeVisible();
+  await expect(page.locator("#agents")).toHaveCount(0); // the AI-agents claims are off the pre-launch site
   await expect(page.getByRole("img", { name: /Likes don't measure sales/ })).toBeVisible();
   await expect(page.locator(".ld-price")).toHaveText("$39.99");
-  await page.getByRole("link", { name: "Start for $39.99 a month" }).first().click();
+  await expect(page.locator(".ld-dark-label")).toHaveText("Fictional sample venue · illustrative numbers");
+  await page.getByRole("link", { name: "See a sample brief" }).first().click();
+  await expect(page).toHaveURL(/\/brief\/sample$/);
+  await expect(page.getByRole("heading", { level: 1 })).toContainText("$48,920");
+  await expect(page.getByText("Fictional sample venue · illustrative numbers")).toBeVisible();
+  await page.goto("/");
+  await page.getByRole("link", { name: "Start a free pilot" }).first().click();
   await expect(page).toHaveURL(/\/signup$/);
   expect(errors).toEqual([]);
 
+  for (const path of ["/privacy", "/pilot-terms"]) expect((await request.get(path)).status(), path).toBe(200);
   expect((await request.get("/robots.txt")).status()).toBe(200);
-  expect(await (await request.get("/sitemap.xml")).text()).toContain("/signup");
+  expect(await (await request.get("/sitemap.xml")).text()).toContain("/brief/sample");
   expect(await (await request.get("/llms.txt")).text()).toContain("# Profit Monitr");
   expect((await request.get("/opengraph-image")).headers()["content-type"]).toContain("image/png");
   expect(await (await request.get("/api/health")).json()).toEqual({ ok: true });
@@ -58,7 +66,7 @@ test("signed-out visitors cannot reach the app or its API", async ({ page, reque
   expect((await request.post("/api/cron/weekly-brief")).status()).toBeGreaterThanOrEqual(401);
 });
 
-test("sign-up: three steps with validation, then the dashboard on sample data", async ({ page }) => {
+test("sign-up: three steps with validation and no card, then the dashboard on sample data", async ({ page }) => {
   await page.goto("/signup");
   await page.getByRole("button", { name: "Continue →" }).click();
   await expect(page.getByText("Please enter your name.")).toBeVisible();
@@ -78,27 +86,22 @@ test("sign-up: three steps with validation, then the dashboard on sample data", 
   await page.getByRole("button", { name: "Email", exact: true }).click();
   await page.getByRole("button", { name: "Continue →" }).click();
 
-  await expect(page.getByRole("heading", { name: "Billing" })).toBeVisible();
-  await expect(page.getByText("Prototype — no payment is processed.")).toBeVisible();
-  await page.getByRole("button", { name: "Start my subscription →" }).click();
-  await expect(page.getByText("Enter a 16-digit card number.")).toBeVisible();
-  await page.getByLabel("Name on card").fill(owner.name);
-  await page.getByLabel("Card number").fill("4242424242424242");
-  await expect(page.getByLabel("Card number")).toHaveValue("4242 4242 4242 4242");
-  await page.getByLabel("Expiry").fill("1230");
-  await page.getByLabel("CVC").fill("123");
-  await page.getByLabel("ZIP").fill("11201");
+  await expect(page.getByRole("heading", { name: "Your free pilot" })).toBeVisible();
+  await expect(page.getByText("No card today.")).toBeVisible();
+  await expect(page.getByLabel(/card/i)).toHaveCount(0); // the prototype card form is gone
+  await page.getByRole("button", { name: "Start my pilot →" }).click();
+  await expect(page.getByText("Please agree to continue.")).toBeVisible();
   await page.getByRole("checkbox").check();
 
-  // The card number, expiry and CVC must never leave the browser.
+  // Nothing resembling billing data is sent — only the consent.
   const sent = page.waitForRequest((r) => r.url().endsWith("/api/auth/signup"));
-  await page.getByRole("button", { name: "Start my subscription →" }).click();
-  const payload = (await sent).postData() ?? "";
-  expect(payload).not.toContain("4242424242424242");
-  expect(payload).not.toContain("4242 4242");
-  expect(JSON.parse(payload).card).toEqual({ name: owner.name, last4: "4242", zip: "11201" });
+  await page.getByRole("button", { name: "Start my pilot →" }).click();
+  const payload = JSON.parse((await sent).postData() ?? "{}");
+  expect(payload.card).toBeUndefined();
+  expect(payload.agree).toBe(true);
 
   await expect(page.getByRole("heading", { name: "You're in, Dana." })).toBeVisible();
+  await expect(page.getByText("Your tracked links and promo codes are ready")).toBeVisible();
   await expect(page.getByText(`First tracked link: monitr.link/${slug}/ig`)).toBeVisible();
   await page.getByRole("link", { name: "Go to your dashboard →" }).click();
 

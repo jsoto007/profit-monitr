@@ -49,6 +49,17 @@
 .ld-pill-white:hover {
   color: var(--ink);
 }
+/* outline pill on the black close section */
+.ld-pill-ghost {
+  padding: 14px 22px;
+  border: 1.5px solid var(--on-dark-55);
+  background: transparent;
+  color: var(--paper);
+}
+.ld-pill-ghost:hover {
+  color: var(--paper);
+  border-color: var(--paper);
+}
 
 /* ── header ───────────────────────────────────────────────────────────── */
 .ld-header {
@@ -369,6 +380,19 @@
   padding: 28px;
   min-width: 0;
 }
+/* "Fictional sample venue" — the card never passes as a customer result */
+.ld-dark-label {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--butter-ink);
+  background: var(--butter);
+  border-radius: var(--r-pill);
+  padding: 5px 10px;
+  margin-bottom: 14px;
+}
 .ld-dark-meta {
   display: flex;
   justify-content: space-between;
@@ -376,6 +400,18 @@
   gap: 12px;
   font-size: 13px;
   color: var(--on-dark-60);
+}
+.ld-dark-more {
+  display: inline-block;
+  margin-top: 20px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--paper);
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+.ld-dark-more:hover {
+  color: var(--mint);
 }
 .ld-dark-delta {
   background: var(--mint);

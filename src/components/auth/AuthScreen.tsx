@@ -5,8 +5,8 @@ import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from "react";
 import { CheckIcon } from "@/components/ui/icons";
 import { Logo } from "@/components/ui/Logo";
-import { DEMO } from "@/data/sample";
-import { firstName, formatCard, formatExpiry, passwordScore, PRICE, PROMOS, SELLS, VENUE_TYPES } from "@/lib/util";
+import { SITE } from "@/data/site";
+import { firstName, passwordScore, PRICE, PROMOS, SELLS, VENUE_TYPES } from "@/lib/util";
 import { EMPTY_SIGNUP, validateStep, type Errors, type SignupFields } from "@/lib/validation";
 import "./auth.css";
 
@@ -14,13 +14,13 @@ type Mode = "signup" | "login";
 type Done = { firstName: string; venueName: string; firstLink: string; firstBrief: string };
 type FieldErrors = Errors & { form?: string };
 
-const STEPS = ["Your account", "Your venue", "Billing"];
-const PLAN = ["Reservations & ticketing, set up for you", "Unlimited tracked links & codes", "The weekly brief, every Monday", "Website, SEO & AI discovery", "Expert guidance, included"];
+const STEPS = ["Your account", "Your venue", "Pilot terms"];
+const PLAN = ["Works on top of Posh, Eventbrite, Resy, OpenTable or your site", "Unlimited tracked links & codes", "Ticket-order imports & one-click export", "The weekly brief, every Monday"];
 const STRENGTH = ["", "Weak", "Fair", "Good", "Strong"];
 const PROGRESS = ["0%", "33%", "66%", "100%", "100%"];
 const TITLES: Record<Mode, string> = { signup: "Create your account — Profit Monitr", login: "Log in — Profit Monitr" };
 /** Which step owns a field, so a server-side error can send the form back to it. */
-const STEP_OF: Record<string, number> = { name: 1, email: 1, password: 1, venue: 2, city: 2, sells: 2 };
+const STEP_OF: Record<string, number> = { name: 1, email: 1, password: 1, venue: 2, city: 2, sells: 2, agree: 3 };
 /** Long enough that the "Creating your account…" state reads as work, not a flash. */
 const MIN_SUBMIT_MS = 700;
 
@@ -60,9 +60,7 @@ export function AuthScreen({ initialMode }: { initialMode: Mode }) {
 
   const onField = (e: ChangeEvent<HTMLInputElement>) => {
     const t = e.target;
-    let val: string | boolean = t.type === "checkbox" ? t.checked : t.value;
-    if (t.name === "card") val = formatCard(t.value);
-    if (t.name === "exp") val = formatExpiry(t.value);
+    const val: string | boolean = t.type === "checkbox" ? t.checked : t.value;
     setF((s) => ({ ...s, [t.name]: val }));
     setErr((s) => ({ ...s, [t.name]: "", form: "" }));
   };
@@ -96,13 +94,12 @@ export function AuthScreen({ initialMode }: { initialMode: Mode }) {
 
     setBusy(true);
     const started = Date.now();
+    // No card, no charge: the pilot is free and only the consent is sent.
     const r = await post<Done>("/api/auth/signup", {
       name: f.name, email: f.email, password: f.password,
       venue: f.venue, vtype: f.vtype, city: f.city, website: f.website, sells: f.sells, promos: f.promos,
       timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
       agree: f.agree,
-      // Only the cardholder name, the last four digits and the ZIP are sent. The number, expiry and CVC stay here.
-      card: { name: f.cardName, last4: f.card.replace(/\D/g, "").slice(-4), zip: f.zip },
     });
     await new Promise((res) => setTimeout(res, Math.max(0, MIN_SUBMIT_MS - (Date.now() - started))));
     setBusy(false);
@@ -156,7 +153,7 @@ export function AuthScreen({ initialMode }: { initialMode: Mode }) {
           <>
             <div>
               <h1>Start filling the room.</h1>
-              <p className="au-side-sub">Three quick steps. We set up your reservations and ticketing as soon as you&apos;re in.</p>
+              <p className="au-side-sub">Three quick steps. Your tracked links are ready the moment you&apos;re in — nothing to migrate.</p>
             </div>
             <ol className="au-steps">
               {STEPS.map((label, i) => {
@@ -179,8 +176,8 @@ export function AuthScreen({ initialMode }: { initialMode: Mode }) {
         )}
         <div className="au-plan">
           <div className="au-plan-head">
-            <span className="au-plan-label">Your plan</span>
-            <span className="au-plan-price">{PRICE}<span> /mo</span></span>
+            <span className="au-plan-label">Free pilot</span>
+            <span className="au-plan-price">{PRICE}<span> /mo after</span></span>
           </div>
           <ul className="au-plan-list">
             {PLAN.map((p) => <li key={p}>{p}</li>)}
@@ -241,7 +238,7 @@ export function AuthScreen({ initialMode }: { initialMode: Mode }) {
                       </div>
                     </div>
                     <div className="au-two">
-                      {input("city", "City", { placeholder: "Austin, TX" })}
+                      {input("city", "City", { placeholder: "Brooklyn, NY" })}
                       {input("website", <>Current website <span className="optional">(optional)</span></>, { placeholder: "yourvenue.com" })}
                     </div>
                     <div className="au-group" role="group" aria-labelledby="sells-label">
@@ -272,23 +269,21 @@ export function AuthScreen({ initialMode }: { initialMode: Mode }) {
                   <div className="au-stack">
                     <div>
                       <div className="kicker">STEP 3 OF 3</div>
-                      <h2 className="au-title">Billing</h2>
-                      <p className="au-note">Prototype — no payment is processed. Try 4242 4242 4242 4242.</p>
+                      <h2 className="au-title">Your free pilot</h2>
+                      <p className="au-note">No card today. {SITE.pilotLine}</p>
                     </div>
-                    {input("cardName", "Name on card", { autoComplete: "cc-name" })}
-                    {input("card", "Card number", { inputMode: "numeric", autoComplete: "cc-number", placeholder: "1234 5678 9012 3456", className: `input au-card-number${err.card ? " is-error" : ""}` })}
-                    <div className="au-three">
-                      {input("exp", "Expiry", { inputMode: "numeric", autoComplete: "cc-exp", placeholder: "MM/YY" }, true)}
-                      {input("cvc", "CVC", { inputMode: "numeric", autoComplete: "cc-csc", placeholder: "123", maxLength: 4 }, true)}
-                      {input("zip", "ZIP", { autoComplete: "postal-code" }, true)}
-                    </div>
+                    <ul className="au-pilot-list">
+                      <li>Your tracked links and promo codes point at the booking page you already use.</li>
+                      <li>Your data stays yours: export it any time, and we delete it when you ask.</li>
+                      <li>Nothing is charged, now or later, without a separate agreement with you.</li>
+                    </ul>
                     <div className="au-due">
                       <span>Due today</span>
-                      <span>{PRICE}</span>
+                      <span>$0</span>
                     </div>
                     <label className="au-consent">
                       <input type="checkbox" name="agree" checked={f.agree} onChange={onField} />
-                      <span>I agree to the Terms and authorize a recurring charge of {PRICE} per month.</span>
+                      <span>I agree to the <Link href="/pilot-terms" target="_blank">pilot terms</Link> and the <Link href="/privacy" target="_blank">privacy notice</Link>.</span>
                     </label>
                     <div className="field-error au-consent-error" role="alert">{err.agree || err.form}</div>
                     <div className="au-buttons">
@@ -296,7 +291,7 @@ export function AuthScreen({ initialMode }: { initialMode: Mode }) {
                       {busy ? (
                         <button type="button" className="btn btn-busy" disabled><span className="spinner" />Creating your account…</button>
                       ) : (
-                        <button type="submit" className="btn">Start my subscription →</button>
+                        <button type="submit" className="btn">Start my pilot →</button>
                       )}
                     </div>
                   </div>
@@ -313,7 +308,7 @@ export function AuthScreen({ initialMode }: { initialMode: Mode }) {
                 <p className="au-done-sub">We&apos;re setting up {done.venueName} right now.</p>
               </div>
               <div className="au-done-rows">
-                {["Account created", "Reservations & ticketing workspace ready", `First tracked link: ${done.firstLink}`, `First weekly brief scheduled for ${done.firstBrief}`].map((row, i) => (
+                {["Account created", "Your tracked links and promo codes are ready", `First tracked link: ${done.firstLink}`, `First weekly brief scheduled for ${done.firstBrief}`].map((row, i) => (
                   <div key={i} className={`au-done-row${shown > i ? " is-on" : ""}`}>
                     <CheckIcon stroke={3} />
                     <span>{row}</span>
@@ -337,7 +332,13 @@ export function AuthScreen({ initialMode }: { initialMode: Mode }) {
               </label>
               <div className="field-error" role="alert">{lErr}</div>
               <button type="submit" className="btn" style={{ justifySelf: "start" }} disabled={busy}>Log in →</button>
-              <div className="au-demo">Demo: <b>{DEMO.email}</b> / <b>{DEMO.password}</b></div>
+            </form>
+          )}
+          {!isSignup && (
+            // A POST, not a link: it signs the visitor into the shared, read-only demo venue.
+            <form action="/api/auth/demo" method="post" className="au-demo">
+              <span>Just looking?</span>
+              <button type="submit" className="btn btn-secondary btn-toggle">Explore the demo venue</button>
             </form>
           )}
         </div>
