@@ -16,6 +16,8 @@ export const POST = handler(async (req: Request) => {
   const user = await requireUser();
   assertNotDemo(user);
   rateLimit(`import:${user.id}`, 20, 60_000);
+  // Refuse an oversized body before reading it: the CSV cap is 2 MB and JSON adds little.
+  if (Number(req.headers.get("content-length") || 0) > 2_600_000) throw new HttpError(413, "That file is too large — export one month at a time.");
   const b = await readJson<Body>(req);
   if (!isImportProvider(b.provider)) throw new HttpError(422, "provider must be eventbrite, posh or opentable.");
   if (typeof b.csv !== "string" || !b.csv.trim()) throw new HttpError(422, "Choose a CSV file first.");

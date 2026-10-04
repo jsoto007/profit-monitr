@@ -71,6 +71,7 @@ export function Dashboard({ initial, initialTab }: { initial: DashboardPayload; 
   const [expert, setExpert] = useState(initial.actions.expertRequested);
   const [switching, setSwitching] = useState(false);
   const [booking, setBooking] = useState<Booking>({ provider: initial.venue.bookingProvider, url: initial.venue.bookingUrl, websiteVerified: initial.venue.websiteVerified });
+  const [imports, setImports] = useState(initial.imports);
   const loading = useRef(new Set<RangeKey>());
   const { show, node: toast } = useToast();
   const live = useLive(initial.live, initial.now, initial.sample);
@@ -170,6 +171,16 @@ export function Dashboard({ initial, initialTab }: { initial: DashboardPayload; 
       ensure(k);
     }
   };
+  // An upload changes every range and the upload history; both come back from the server.
+  const afterImport = async () => {
+    refetchRanges();
+    try {
+      const res = await fetch("/api/imports");
+      if (res.ok) setImports((await res.json()).imports);
+    } catch {
+      /* the list refreshes on the next load */
+    }
+  };
   const saveBooking = async (b: Booking) => {
     // The server decides the provider from the pasted page and returns the canonical URL; show that, not the raw input.
     const r = await sendForm<{ bookingProvider: Booking["provider"]; bookingUrl: string; websiteVerified: boolean }>("/api/venue", { bookingProvider: b.provider, bookingUrl: b.url });
@@ -259,7 +270,7 @@ export function Dashboard({ initial, initialTab }: { initial: DashboardPayload; 
         {tab === "overview" && <Overview m={m} next={next} openCount={open.length} nextBrief={initial.nextBrief} go={go} approve={approveAction} />}
         {tab === "revenue" && <Revenue m={m} channels={data.channels} content={data.content} />}
         {tab === "reservations" && (
-          <Reservations m={m} r={data.reservations} editable={!initial.user.isDemo} sample={initial.sample} imports={initial.imports} onImported={refetchRanges} />
+          <Reservations m={m} r={data.reservations} editable={!initial.user.isDemo} sample={initial.sample} imports={imports} onImported={afterImport} />
         )}
         {tab === "channels" && (
           <Channels rangeLabel={m.rangeLabel} channels={data.channels} notes={data.sortNotes} sort={sort} onSort={setSort} booking={booking} editable={!initial.user.isDemo} rowsEditable={!initial.sample && !initial.user.isDemo} onBooking={saveBooking} onDestination={saveDestination} />

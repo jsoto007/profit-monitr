@@ -39,9 +39,14 @@ export function parseCsv(text: string): string[][] {
   return rows.filter((r) => r.some((c) => c.trim() !== ""));
 }
 
-/** One CSV cell, quoted when it needs to be. */
+/**
+ * One CSV cell, quoted when it needs to be. A text cell that starts like a
+ * spreadsheet formula (=, +, -, @, tab, CR) is prefixed with an apostrophe so a
+ * guest name typed as `=HYPERLINK(...)` opens as text, not as a formula.
+ */
 export const csvCell = (v: unknown): string => {
-  const s = v == null ? "" : String(v);
+  let s = v == null ? "" : String(v);
+  if (typeof v === "string" && /^[=+\-@\t\r]/.test(s)) s = `'${s}`;
   return /[",\r\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 };
 

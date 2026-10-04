@@ -99,7 +99,7 @@ export function SampleBrief() {
             <h2 id="legend" className="br-h2">What these numbers can prove</h2>
             <ul>
               <li><b>Measured exactly:</b> bookings made on your Monitr booking page and guests checked in at the door.</li>
-              <li><b>As your platform reports it:</b> ticket orders uploaded from Posh or Eventbrite, matched by promo code or tracking link.</li>
+              <li><b>As your platform reports it:</b> orders uploaded from Posh, Eventbrite or OpenTable, matched by promo code or tracking link.</li>
               <li><b>Clicks:</b> taps on your tracked links. A click is a click, never a booking.</li>
             </ul>
             <p>This brief is for a fictional venue, with numbers chosen to show every part of the page. Yours will be built from your own activity only.</p>

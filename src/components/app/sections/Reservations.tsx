@@ -26,12 +26,12 @@ function ImportOrders({ imports, onImported }: { imports: ImportRecord[]; onImpo
   const [file, setFile] = useState<{ name: string; text: string } | null>(null);
   const [preview, setPreview] = useState<ImportSummary | null>(null);
   const [done, setDone] = useState<ImportSummary | null>(null);
-  const [history, setHistory] = useState(imports);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
 
   const choose = async (e: ChangeEvent<HTMLInputElement>) => {
     const f = e.target.files?.[0];
+    e.target.value = ""; // so the same file can be chosen again after Cancel
     if (!f) return;
     setErr("");
     setDone(null);
@@ -50,11 +50,9 @@ function ImportOrders({ imports, onImported }: { imports: ImportRecord[]; onImpo
     const r = await postImport({ provider, fileName: file.name, csv: file.text, dryRun: false });
     setBusy(false);
     if (!r.ok) return setErr(r.data.error || "That didn’t save — please try again");
-    const s = r.data as ImportSummary;
-    setDone(s);
+    setDone(r.data as ImportSummary);
     setPreview(null);
     setFile(null);
-    setHistory((h) => [{ id: `local-${Date.now()}`, provider, fileName: file.name, rows: s.rows, created: s.created, updated: s.updated, rejected: s.rejected, unattributed: s.unattributed, at: new Date().toISOString() }, ...h]);
     onImported();
   };
   const p = IMPORT_PROVIDERS[provider];
@@ -65,7 +63,7 @@ function ImportOrders({ imports, onImported }: { imports: ImportRecord[]; onImpo
         <h2 className="db-h2">Upload your platform&apos;s {unit}</h2>
         <a className="btn btn-xs btn-secondary" href="/api/export" download>Export bookings (CSV)</a>
       </div>
-      <p className="imp-intro">Monitr sees the click; your platform saw the sale. Its export closes the loop: each order is credited to the promo code or tracking link that earned it. Upload a newer export any time — the same orders update, nothing is counted twice.</p>
+      <p className="imp-intro">Monitr sees the click; your platform saw the sale. Its export closes the loop: each order is credited to the promo code or tracking link that earned it. Upload newer exports in date order — the same orders update, nothing is counted twice, and a refund never comes back. Attendance in the file is noted but never counted as a door check-in.</p>
       <div className="au-chips" role="radiogroup" aria-label="Platform">
         {IMPORT_PROVIDER_KEYS.map((k) => (
           <button key={k} type="button" role="radio" aria-checked={provider === k} className="chip" onClick={() => { setProvider(k); setPreview(null); setFile(null); setErr(""); }}>{IMPORT_PROVIDERS[k].label}</button>
@@ -82,13 +80,13 @@ function ImportOrders({ imports, onImported }: { imports: ImportRecord[]; onImpo
       {preview && (
         <div className="imp-preview" aria-live="polite">
           <b>{fmt(preview.rows)} {unit} read</b> · {fmt(preview.created)} new · {fmt(preview.updated)} already here{preview.rejected ? ` · ${fmt(preview.rejected)} skipped` : ""}
-          {preview.refunded ? ` · ${fmt(preview.refunded)} refunded` : ""} · {money(preview.revenueCents)} net
+          {preview.refunded ? ` · ${fmt(preview.refunded)} refunded` : ""}{preview.unpaid ? ` · ${fmt(preview.unpaid)} unpaid (held, not revenue)` : ""}{preview.keptRefunded ? ` · ${fmt(preview.keptRefunded)} stay refunded` : ""}{preview.attended ? ` · ${fmt(preview.attended)} marked attended by the platform` : ""} · {money(preview.revenueCents)} paid
           {preview.missing.length > 0 && (
             <div className="field-error">This file has no {preview.missing.map((f) => FIELD_LABEL[f]).join(" or ")} column. Columns found: {preview.headers.join(", ") || "none"}.</div>
           )}
           {preview.byChannel.length > 0 && (
             <ul className="imp-list">
-              {preview.byChannel.map((c) => <li key={c.name}>{c.name}: {fmt(c.orders)} {c.orders === 1 ? "order" : "orders"} · {money(c.revenueCents)}</li>)}
+              {preview.byChannel.map((c, i) => <li key={`${c.name}-${i}`}>{c.name}: {fmt(c.orders)} {c.orders === 1 ? "order" : "orders"} · {money(c.revenueCents)}</li>)}
               {preview.unattributed > 0 && <li>No code or link: {fmt(preview.unattributed)} — counted as platform sales, credited to no source</li>}
             </ul>
           )}
@@ -109,9 +107,9 @@ function ImportOrders({ imports, onImported }: { imports: ImportRecord[]; onImpo
       )}
       {done && <div className="imp-done" role="status">Imported {fmt(done.created)} new and updated {fmt(done.updated)} {unit}. Your numbers are refreshing.</div>}
 
-      {history.length > 0 && (
+      {imports.length > 0 && (
         <ul className="imp-history" aria-label="Recent uploads">
-          {history.slice(0, 5).map((h) => (
+          {imports.slice(0, 5).map((h) => (
             <li key={h.id}>{when(h.at)} · {IMPORT_PROVIDERS[h.provider as ImportProvider]?.label ?? h.provider} · {h.fileName || "export"} · {fmt(h.rows)} rows, {fmt(h.created)} new, {fmt(h.updated)} updated{h.unattributed ? `, ${fmt(h.unattributed)} without a source` : ""}</li>
           ))}
         </ul>

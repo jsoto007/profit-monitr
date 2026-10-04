@@ -18,11 +18,17 @@ export type ImportSummary = {
   rows: number;
   created: number;
   updated: number;
+  /** orders a previous upload refunded that this (older) file still shows as paid — left refunded */
+  keptRefunded: number;
   rejected: number;
   attributed: number;
   unattributed: number;
   refunded: number;
-  /** net of refunds, before the platform's fees */
+  /** ordered but not paid: held, never revenue */
+  unpaid: number;
+  /** attended as the platform reports it — information only, never a door check-in */
+  attended: number;
+  /** paid orders only, net of refunds, before the platform's fees */
   revenueCents: number;
   /** required columns the file lacks; nothing is written while this is non-empty */
   missing: Field[];

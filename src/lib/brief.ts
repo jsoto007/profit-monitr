@@ -27,7 +27,10 @@ export async function generateWeeklyBrief(venue: Venue, now = new Date()) {
   // A source whose link lands on Posh / Eventbrite / Resy proves its clicks and nothing
   // after them, so it is never "best" by the door and never "worst" by conversion.
   const measurable = active.filter((c) => c.fidelity !== "clicks");
-  const best = [...measurable].sort((a, b) => b.door - a.door)[0] ?? active[0];
+  // What a source delivered: guests at the door, or — for a platform source — the bookings its export reports.
+  const delivered = (c: (typeof active)[number]) => (c.fidelity === "platform" ? c.booked : c.door);
+  const unit = (c: (typeof active)[number]) => (c.fidelity === "platform" ? "bookings" : "guests");
+  const best = [...measurable].sort((a, b) => delivered(b) - delivered(a))[0] ?? active[0];
   const worst = measurable.filter((c) => c.clicks >= 50).sort((a, b) => a.rate - b.rate)[0];
   const topClicks = active.filter((c) => c.fidelity === "clicks").sort((a, b) => b.clicks - a.clicks)[0];
   const nights = data.reservations.bars;
@@ -41,11 +44,16 @@ export async function generateWeeklyBrief(venue: Venue, now = new Date()) {
   const share = { title: "Share your tracked link in your bio and stories", description: `Every click, booking and check-in from ${linkHost()}/${venue.slug}/ig shows up here next Monday.`, estimate: "", tip: "sharing your tracked link" };
   const codes = { title: "Give every promoter and influencer their own link and code", description: "You can only scale what you can measure. One link and one code each.", estimate: "", tip: "giving each promoter their own code" };
 
-  const first = best.door
-    ? { title: `Go again with ${best.name} this week`, description: `Code ${best.code} brought ${fmt(best.door)} guests${best.clicks ? ` at a ${rate(best.rate)} click-to-door rate` : ""} — your best source.`, estimate: best.revCents ? `It earned ${money(best.revCents)} last week` : "", tip: `going again with ${best.name}` }
+  const first = best && delivered(best)
+    ? {
+        title: `Go again with ${best.name} this week`,
+        description: `Code ${best.code} brought ${fmt(delivered(best))} ${unit(best)}${best.fidelity === "platform" ? ` on ${PROVIDERS[best.provider].label}` : ""}${best.clicks ? ` at a ${rate(best.rate)} click-to-${best.fidelity === "platform" ? "order" : "door"} rate` : ""} — your best source.`,
+        estimate: best.revCents ? `It earned ${money(best.revCents)} last week` : "",
+        tip: `going again with ${best.name}`,
+      }
     : (upload ?? share);
-  const second = worst && worst.id !== best.id
-    ? { title: `Fix or pause ${worst.name}`, description: `${fmt(worst.clicks)} clicks but only ${fmt(worst.door)} guests (${rate(worst.rate)}). Try a clearer offer or move the budget.`, estimate: "", tip: `fixing or pausing ${worst.name}` }
+  const second = worst && worst.id !== best?.id
+    ? { title: `Fix or pause ${worst.name}`, description: `${fmt(worst.clicks)} clicks but only ${fmt(delivered(worst))} ${unit(worst)} (${rate(worst.rate)}). Try a clearer offer or move the budget.`, estimate: "", tip: `fixing or pausing ${worst.name}` }
     : (upload && upload !== first ? upload : codes);
   const actions = [
     first,
@@ -57,7 +65,8 @@ export async function generateWeeklyBrief(venue: Venue, now = new Date()) {
     data: actions.map((a, i) => ({ venueId: venue.id, sample: false, weekStart: week, rank: i + 1, ...a })),
     skipDuplicates: true,
   });
-  // Guests credited to a link or code — a walk-in with no source is not "from your links".
+  // Guests and bookings credited to a link or code — a walk-in with no source is not "from your links".
   const door = active.reduce((s, c) => s + c.door, 0);
-  return { created: count, door, revCents: m.revCents, platformCents: m.platformCents, doorCents: m.doorCents, unattributedCents: m.unattributedCents, actions };
+  const booked = active.reduce((s, c) => s + c.booked, 0);
+  return { created: count, door, booked, revCents: m.revCents, platformCents: m.platformCents, doorCents: m.doorCents, unattributedCents: m.unattributedCents, actions };
 }

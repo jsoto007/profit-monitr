@@ -461,12 +461,18 @@ describe("imported platform orders", () => {
     const done = await importOrders(user, "eventbrite", file(), "orders.csv", false);
     expect([done.created, done.updated]).toEqual([4, 0]);
     const rows = await db.booking.findMany({ where: { venueId: user.venue.id }, orderBy: { externalId: "asc" } });
+    // Attendance in the file ("Yes" on 1002) is never written as a door check-in.
     expect(rows.map((r) => [r.externalId, r.provider, r.kind, r.amountCents, r.partySize, r.promoCode, !!r.channelId, r.paidAt?.getTime() === r.createdAt.getTime(), !!r.checkedInAt])).toEqual([
       ["1001", "eventbrite", "TICKET", 6_000, 2, "INSTA", true, true, false],
-      ["1002", "eventbrite", "TICKET", 4_000, 1, "EMAIL", true, true, true],
+      ["1002", "eventbrite", "TICKET", 4_000, 1, "EMAIL", true, true, false],
       ["1003", "eventbrite", "TICKET", 2_500, 1, "", false, true, false],
       ["1004", "eventbrite", "TICKET", 0, 0, "INSTA", true, false, false], // refunded: no money, no tickets
     ]);
+    expect(done.attended).toBe(1);
+    // The door never works an imported order: it cannot be checked in, billed or released.
+    await expect(checkIn(user.venue.id, rows[0].confirmation, "10.00")).rejects.toMatchObject({ status: 404 });
+    await expect(releaseBooking(user.venue.id, rows[0].confirmation)).rejects.toMatchObject({ status: 404 });
+    expect(await db.booking.count({ where: { venueId: user.venue.id } })).toBe(4);
     expect(rows[0].createdAt.getTime()).toBe(daysAgo(3).getTime() - (daysAgo(3).getTime() % 60_000)); // the order's own time, to the minute
     expect(await db.event.count({ where: { venueId: user.venue.id, externalId: { not: null }, capacity: 0 } })).toBe(1);
 
@@ -490,6 +496,14 @@ describe("imported platform orders", () => {
     expect((await getRange(user.venue, "month")).metrics.revCents).toBe(4_000);
     expect(await db.booking.count({ where: { venueId: user.venue.id } })).toBe(4);
     expect(await db.import.count({ where: { venueId: user.venue.id } })).toBe(3);
+    // The old file uploaded again does not bring the refund back.
+    const stale = await importOrders(user, "eventbrite", file(), "orders.csv", false);
+    expect([stale.keptRefunded, stale.updated]).toEqual([1, 3]);
+    expect((await getRange(user.venue, "month")).metrics.revCents).toBe(4_000);
+    // The brief ranks the platform bookings when the door has nothing: Email (1 order, $40) is now best.
+    const b2 = await generateWeeklyBrief(user.venue, new Date(Date.now() + 7 * 86_400_000));
+    expect(b2!.actions[0].title).toBe("Go again with Email this week");
+    expect(b2!.actions[0].description).toContain("1 bookings on Eventbrite");
     const brief = await generateWeeklyBrief(user.venue, new Date(Date.now() + 7 * 86_400_000));
     expect(brief).toMatchObject({ platformCents: 4_000, doorCents: 0, unattributedCents: 2_500 });
   });

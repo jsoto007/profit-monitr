@@ -63,11 +63,11 @@ describe("platform exports", () => {
     const p = parseExport(text, "eventbrite", NY);
     expect(p.missing).toEqual([]);
     expect(p.rejects).toEqual([{ line: 7, reason: 'unreadable date "not a date"' }, { line: 8, reason: "no order id" }]);
-    expect(p.rows.map((r) => [r.externalId, r.amountCents, r.refunded, r.promoCode, r.tracking, r.checkedIn, r.quantity])).toEqual([
-      ["1001", 6_000, false, "INSTA", "", false, 2],
-      ["1002", 4_000, false, "", "promoter-leo", true, 1],
-      ["1003", 2_500, false, "", "", false, 1],
-      ["1004", 0, true, "INSTA", "", false, 1], // the refund line for the same order wins
+    expect(p.rows.map((r) => [r.externalId, r.amountCents, r.paid, r.refunded, r.promoCode, r.tracking, r.attended, r.quantity])).toEqual([
+      ["1001", 6_000, true, false, "INSTA", "", false, 2],
+      ["1002", 4_000, true, false, "", "promoter-leo", true, 1],
+      ["1003", 2_500, true, false, "", "", false, 1],
+      ["1004", 0, false, true, "INSTA", "", false, 0], // the refund line for the same order wins: no money, no tickets
     ]);
     expect(p.rows[0].orderedAt.toISOString()).toBe("2026-09-26T23:05:00.000Z");
     expect(p.rows[0].eventStartsAt?.toISOString()).toBe("2026-10-04T01:00:00.000Z");
@@ -78,15 +78,39 @@ describe("platform exports", () => {
   it("reads a Posh-style event report and matches tracking links by name", () => {
     const text = ["Order ID,Date,Name,Email,Tickets,Total,Promo Code,Tracking Link,Status", "P-1,2026-09-26 22:00,Ana Guest,ana@x.test,3,$90.00,,Promoter · Leo R.,Paid", "P-2,2026-09-26 22:30,Bo Guest,bo@x.test,1,$30.00,,,Cancelled"].join("\n");
     const p = parseExport(text, "posh", NY);
-    expect(p.rows.map((r) => [r.externalId, r.quantity, r.amountCents, r.refunded, attribute(r, channels)?.code ?? null])).toEqual([["P-1", 3, 9_000, false, "LEO"], ["P-2", 1, 0, true, null]]);
+    expect(p.rows.map((r) => [r.externalId, r.quantity, r.amountCents, r.refunded, attribute(r, channels)?.code ?? null])).toEqual([["P-1", 3, 9_000, false, "LEO"], ["P-2", 0, 0, true, null]]); // cancelled: no tickets
     expect(p.rows[0].eventExternalId).toBe(""); // no event column: orders hang off no event
   });
 
   it("reads an OpenTable-style reservations export: seated means arrived, no money is implied", () => {
     const text = ["Confirmation Number,Date,Time,Guest Name,Email,Party Size,Source,Campaign Name,Status", "R-77,09/26/2026,7:30 PM,Ana Guest,ana@x.test,4,Instagram,,Seated", "R-78,09/26/2026,8:00 PM,Bo Guest,bo@x.test,2,,,No-show"].join("\n");
     const p = parseExport(text, "opentable", NY);
-    expect(p.rows.map((r) => [r.externalId, r.quantity, r.amountCents, r.checkedIn, r.refunded, attribute(r, channels)?.code ?? null])).toEqual([["R-77", 4, 0, true, false, "INSTA"], ["R-78", 2, 0, false, true, null]]);
+    // No checked-in column: attendance is unknown, and "Seated" is never read as a door check-in.
+    expect(p.rows.map((r) => [r.externalId, r.quantity, r.amountCents, r.attended, r.refunded, attribute(r, channels)?.code ?? null])).toEqual([["R-77", 4, 0, null, false, "INSTA"], ["R-78", 0, 0, null, true, null]]); // a no-show holds nothing
     expect(p.rows[0].orderedAt.toISOString()).toBe("2026-09-26T23:30:00.000Z");
+  });
+
+  it("nets a partial refund, holds an unpaid order, and reads free, foreign and worded cells the safe way", () => {
+    const head = "Order ID,Date,Name,Tickets,Total,Status";
+    const text = [head, "A,2026-09-26 20:00,Ana,2,$60.00,Attending", "A,2026-09-27 09:00,Ana,2,(5.00),Partially Refunded", "B,2026-09-26 20:00,Bo,1,40.00,Unpaid", "C,2026-09-26 20:00,Cy,1,Free,Attending", "D,2026-09-26 20:00,Di,2 tickets,55.00,Partially Refunded", "E,2026-09-26 20:00,Ed,1,€30.00,Attending", "F,2026-09-26 20:00,Fay,2.5,10.00,Attending", "G,2026-09-26 20:00 UTC,Gil,1,10.00,Attending", "H,2026-09-26 20:00 PST,Hal,1,10.00,Attending"].join("\n");
+    const p = parseExport(text, "posh", NY);
+    expect(p.rows.map((r) => [r.externalId, r.amountCents, r.quantity, r.paid, r.refunded, r.unpaid])).toEqual([
+      ["A", 5_500, 2, true, false, false], // $60 − $5, tickets kept
+      ["B", 4_000, 1, false, false, true], // held: never revenue
+      ["C", 0, 1, false, false, false], // free: a guest, no money
+      ["D", 5_500, 2, true, false, false], // a single netted line
+      ["G", 1_000, 1, true, false, false],
+    ]);
+    expect(p.rows.find((r) => r.externalId === "G")!.orderedAt.toISOString()).toBe("2026-09-26T20:00:00.000Z"); // a zone it understands
+    expect(p.rejects.map((r) => r.reason)).toEqual([
+      'unreadable amount "€30.00" (US dollars only)',
+      'unreadable quantity "2.5"',
+      'unreadable date "2026-09-26 20:00 PST"', // a zone it cannot apply is a skipped line, not a guess
+    ]);
+  });
+
+  it("neutralises spreadsheet formulas in exported text", () => {
+    expect(csvLine(['=HYPERLINK("http://evil","x")', "+1", "-5", "@cmd", 7, "$1.00"])).toBe(`"'=HYPERLINK(""http://evil"",""x"")",'+1,'-5,'@cmd,7,$1.00`);
   });
 
   it("names the columns it cannot find instead of guessing", () => {

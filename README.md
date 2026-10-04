@@ -112,19 +112,26 @@ code or link), then import. [`src/lib/imports.ts`](src/lib/imports.ts):
   column; otherwise it is counted as **platform / unattributed** (real sales,
   credited to no source — shown on Revenue and in the email, never as "direct").
 - Rows upsert on `(venueId, provider, externalId)`: uploading a newer export
-  updates the same orders, nothing is counted twice; a refund or cancellation in
-  a later file sets the order to $0 and 0 tickets. The most recently uploaded
-  file wins, so upload exports in date order.
-- Money is parsed to integer cents (`$1,204.50`, `(15.00)`, `USD 30.00`;
-  comma decimals are refused, not misread). Order times are read as the venue's
-  wall clock unless they carry a zone; the day is validated (no Feb 31).
+  updates the same orders, nothing is counted twice. A refund or cancellation
+  sets the order to $0 and 0 tickets and **stays refunded** even if an older
+  file is uploaded later; a partial refund is netted and keeps its tickets; an
+  unpaid / pending order is a hold, never revenue. Upload exports in date order.
+- Money is parsed to integer cents (`$1,204.50`, `(15.00)`, `USD 30.00`, `Free`;
+  comma decimals and other currencies are refused, not misread). Order times
+  are read as the venue's wall clock unless they carry a zone the reader
+  understands (`Z`, `±hh:mm`, `UTC`); anything else skips the line. Dates are
+  month/day/year.
 - An imported paid order is **revenue at `paidAt`** (when the platform took the
   money); a booking made on Monitr's page is revenue at check-in, as before. The
   Overview headline is the credited total; Revenue and the Monday email show the
-  two bases separately. Attendance from the export feeds "guests at the door"
-  but not the show rate, which stays a door measurement.
-- Uploads stay out of the Live feed; they count in every total. Limit 2 MB per
-  file (export a month at a time).
+  two bases separately. Attendance in the file is shown in the preview but is
+  **never written as a door check-in**: guests at the door, the show rate and
+  revenue per guest stay Monitr's own measurements, and imported orders cannot be
+  checked in, billed or released at the door.
+- Uploads stay out of the Live feed; they count in every total. Two uploads for
+  one venue run one after the other. Limits: 2 MB and 5,000 rows per file
+  (export a month at a time). Review:
+  [`claude-reports/Money-Safety/money-safety-review-imports-2026-10-04.md`](claude-reports/Money-Safety/money-safety-review-imports-2026-10-04.md).
 
 ### Sample data vs. your data
 

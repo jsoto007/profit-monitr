@@ -23,7 +23,8 @@ export default async function BookPage(props: PageProps<"/book/[venue]">) {
   const channel = viaSlug ? await db.channel.findFirst({ where: { venueId: venue.id, slug: viaSlug, active: true }, select: { slug: true, code: true, discountPct: true } }) : null;
 
   const now = new Date();
-  const rows = await db.event.findMany({ where: { venueId: venue.id, kind: "TICKET", startsAt: { gt: now } }, orderBy: { startsAt: "asc" }, take: 6, include: { bookings: { select: { partySize: true } } } });
+  // Events created from an imported export are sold on their platform, not here.
+  const rows = await db.event.findMany({ where: { venueId: venue.id, kind: "TICKET", externalId: null, startsAt: { gt: now } }, orderBy: { startsAt: "asc" }, take: 6, include: { bookings: { select: { partySize: true } } } });
   const events: TicketEvent[] = rows.map((e) => ({
     id: e.id,
     name: e.name,

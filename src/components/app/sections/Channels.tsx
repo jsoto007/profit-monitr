@@ -122,7 +122,7 @@ function Destination({ row, editable, onDestination }: { row: ChannelRow; editab
 }
 
 export function Channels({ rangeLabel, channels, notes, sort, onSort, booking, editable, rowsEditable, onBooking, onDestination }: Props) {
-  const max = { clicks: Math.max(0, ...channels.map((c) => c.clicks)), door: Math.max(0, ...channels.map((c) => c.door)), rev: Math.max(0, ...channels.map((c) => c.revCents)) };
+  const max = { clicks: Math.max(0, ...channels.map((c) => c.clicks)), door: Math.max(0, ...channels.map((c) => c.door)), booked: Math.max(0, ...channels.map((c) => c.booked)), rev: Math.max(0, ...channels.map((c) => c.revCents)) };
   // Array.prototype.sort is stable, so ties keep the server's order.
   const rows = [...channels].sort((a, b) => VALUE[sort](b) - VALUE[sort](a));
   const w = (v: number, m: number) => pct(m ? v / m : 0);
@@ -155,7 +155,12 @@ export function Channels({ rangeLabel, channels, notes, sort, onSort, booking, e
               </div>
               <div className="ch-minis">
                 <div className="ch-mini"><span>Clicks</span><div className="track"><div style={{ width: w(r.clicks, max.clicks) }} /></div><span>{fmt(r.clicks)}</span></div>
-                <div className="ch-mini is-door"><span>At door</span><div className="track"><div style={{ width: clicksOnly ? "0%" : w(r.door, max.door) }} /></div><span>{clicksOnly ? "—" : fmt(r.door)}</span></div>
+                {r.fidelity === "platform" ? (
+                  // A platform source's bookings are what its export reports; the door is not where they are counted.
+                  <div className="ch-mini is-door"><span>Orders</span><div className="track"><div style={{ width: w(r.booked, max.booked) }} /></div><span>{fmt(r.booked)}</span></div>
+                ) : (
+                  <div className="ch-mini is-door"><span>At door</span><div className="track"><div style={{ width: clicksOnly ? "0%" : w(r.door, max.door) }} /></div><span>{clicksOnly ? "—" : fmt(r.door)}</span></div>
+                )}
                 <div className="ch-mini is-rev"><span>Revenue</span><div className="track"><div style={{ width: clicksOnly ? "0%" : w(r.revCents, max.rev) }} /></div><span>{clicksOnly ? "—" : money(r.revCents)}</span></div>
               </div>
               <div className="ch-verdict">

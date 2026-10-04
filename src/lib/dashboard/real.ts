@@ -1,6 +1,7 @@
 import type { Venue } from "@/generated/prisma/client";
 import { db } from "@/lib/db";
 import { destinationLive, PROVIDERS, providerOf, type Fidelity } from "@/lib/destinations";
+import { uploadedProviders } from "@/lib/imports";
 import { rangeLabel, rangeWindow, serviceDay, shortDate, weekStart, zonedParts, type RangeKey } from "@/lib/time";
 import { deltaLabel, fmt, linkHost, money } from "@/lib/util";
 import { channelVerdict } from "./sample";
@@ -33,18 +34,24 @@ const ratio = (a: number, b: number) => {
   return `${p === 100 && a < b ? 99 : p}%`;
 };
 
+/** An imported order that was refunded or cancelled holds nothing: it is not a booking any more. */
+const counted = (b: B) => b.provider === "native" || b.partySize > 0;
+
 function totals(bs: B[], from: Date, to: Date) {
   const earned = bs.filter((b) => within(revenueAt(b), from, to));
   const credited = earned.filter((b) => b.channelId);
+  const made = bs.filter((b) => counted(b) && within(b.createdAt, from, to));
   return {
     revCents: sum(credited, (b) => b.amountCents),
     allRevCents: sum(earned, (b) => b.amountCents),
+    /** every sale taken at the door, credited or not — the base for revenue per guest */
+    allDoorRevCents: sum(earned.filter((b) => !b.paidAt), (b) => b.amountCents),
     platformCents: sum(credited.filter((b) => b.paidAt), (b) => b.amountCents),
     doorCents: sum(credited.filter((b) => !b.paidAt), (b) => b.amountCents),
     unattributedCents: sum(earned.filter((b) => !b.channelId && b.provider !== "native"), (b) => b.amountCents),
-    res: bs.filter((b) => b.kind === "RESERVATION" && within(b.createdAt, from, to)).length,
-    tix: sum(bs.filter((b) => b.kind === "TICKET" && within(b.createdAt, from, to)), (b) => b.partySize),
-    orders: bs.filter((b) => within(b.createdAt, from, to)).length,
+    res: made.filter((b) => b.kind === "RESERVATION").length,
+    tix: sum(made.filter((b) => b.kind === "TICKET"), (b) => b.partySize),
+    orders: made.length,
     door: sum(bs.filter((b) => within(b.checkedInAt, from, to)), (b) => b.partySize),
   };
 }
@@ -52,7 +59,7 @@ function totals(bs: B[], from: Date, to: Date) {
 export async function realRange(venue: Venue, key: RangeKey, now: Date): Promise<RangeData> {
   const tz = venue.timezone;
   const w = rangeWindow(key, now, tz);
-  const [channels, contents, bookings, clicks, events] = await Promise.all([
+  const [channels, contents, bookings, clicks, events, uploaded] = await Promise.all([
     db.channel.findMany({ where: { venueId: venue.id }, orderBy: { createdAt: "asc" } }),
     db.content.findMany({ where: { venueId: venue.id }, include: { channel: { select: { detail: true, name: true, destination: true } } }, orderBy: { createdAt: "asc" } }),
     db.booking.findMany({
@@ -61,6 +68,7 @@ export async function realRange(venue: Venue, key: RangeKey, now: Date): Promise
     }),
     db.clickEvent.findMany({ where: { channel: { venueId: venue.id }, createdAt: { gte: w.from, lt: w.to } }, select: { channelId: true, contentId: true } }),
     db.event.findMany({ where: { venueId: venue.id, startsAt: { gte: now } }, orderBy: { startsAt: "asc" }, take: 3, include: { bookings: { select: { partySize: true } } } }),
+    uploadedProviders(venue.id),
   ]);
 
   const cur = totals(bookings, w.from, w.to);
@@ -82,10 +90,40 @@ export async function realRange(venue: Venue, key: RangeKey, now: Date): Promise
   };
   // Where a channel's link actually lands right now (a link to an unverified own site still lands on Monitr's page).
   const externalOf = (c: { destination: string }) => [c.destination, venue.bookingUrl].find((u) => destinationLive(u, venue.websiteVerified)) ?? "";
+
+  // Channels. What a source can prove:
+  //   exact    — its link lands on Monitr's page: clicks, bookings and door check-ins are all measured here;
+  //   platform — orders credited to it came from an uploaded export, or its link lands on a platform
+  //              whose export this venue has uploaded: bookings as that platform reports them;
+  //   clicks   — its link lands on a platform nothing has been uploaded from: clicks and nothing after.
+  // A clicks-only source never earns a conversion verdict, never ranks as "worst", and shows "—"
+  // where a rate or return would be invented. For a platform source, orders stand in for the door.
+  const rows: (ChannelRow & { spend: number; short: string })[] = channels.map((c) => {
+    const mine = bookings.filter((b) => b.channelId === c.id);
+    const t = totals(mine, w.from, w.to);
+    const clickCount = clicks.filter((k) => k.channelId === c.id).length;
+    const spend = spendOf(c);
+    const external = externalOf(c);
+    const importedHere = mine.some((b) => b.provider !== "native" && counted(b) && within(b.createdAt, w.from, w.to));
+    const fidelity: Fidelity = importedHere ? "platform" : !external ? "exact" : uploaded.has(providerOf(external)) ? "platform" : "clicks";
+    const measured = fidelity !== "clicks";
+    const converted = fidelity === "platform" ? t.orders : t.door;
+    return {
+      id: c.id, name: c.name, short: c.short || c.name, detail: c.detail, code: c.code,
+      clicks: clickCount, booked: t.res + t.tix, door: t.door, revCents: t.revCents,
+      roi: !measured ? "—" : spend ? `${(t.revCents / spend).toFixed(1)}×` : t.revCents ? "free" : "—",
+      weak: measured && spend > 0 && t.revCents / spend < 1.5,
+      rate: measured && clickCount ? converted / clickCount : 0,
+      verdict: !measured ? (clickCount ? "Getting clicks" : "New") : channelVerdict(clickCount, converted),
+      fidelity,
+      provider: providerOf(external),
+      destination: c.destination,
+      spend,
+    };
+  });
+  const fidelityById = new Map(rows.map((r) => [r.id, r.fidelity]));
   // Spend on a source whose return cannot be measured here is left out of the return on marketing, not read as 0.0×.
-  const importedInRange = bookings.some((b) => b.provider !== "native" && within(b.createdAt, w.from, w.to));
-  const fidelityOf = (c: { destination: string }): Fidelity => (!externalOf(c) ? "exact" : importedInRange ? "platform" : "clicks");
-  const spendCents = sum(channels.filter((c) => fidelityOf(c) !== "clicks"), spendOf);
+  const spendCents = sum(rows.filter((r) => r.fidelity !== "clicks"), (r) => r.spend);
   const roi = spendCents ? `${(cur.revCents / spendCents).toFixed(1)}×` : "—";
 
   // Revenue chart: one bar per day, or per Monday week for the month range.
@@ -102,34 +140,6 @@ export async function realRange(venue: Venue, key: RangeKey, now: Date): Promise
   }
   const best = bars.reduce((a, b) => (b.value > a.value ? b : a), bars[0]);
 
-  // Channels. A link that sends people to the venue's Posh / Eventbrite / Resy page
-  // can prove its clicks here and nothing after them until that platform's orders
-  // are imported, so such a source never earns a conversion-based verdict, never
-  // ranks as "worst", and shows "—" where a rate or return would be invented.
-  // Once an export is in, an external source is "platform" fidelity: its orders
-  // (as the platform reports them) stand in for the door in the click-to-… rate.
-  const rows: (ChannelRow & { spend: number; short: string })[] = channels.map((c) => {
-    const mine = bookings.filter((b) => b.channelId === c.id);
-    const t = totals(mine, w.from, w.to);
-    const clickCount = clicks.filter((k) => k.channelId === c.id).length;
-    const spend = spendOf(c);
-    const external = externalOf(c);
-    const fidelity = fidelityOf(c);
-    const measured = fidelity !== "clicks";
-    const converted = fidelity === "platform" ? t.orders : t.door;
-    return {
-      id: c.id, name: c.name, short: c.short || c.name, detail: c.detail, code: c.code,
-      clicks: clickCount, booked: t.res + t.tix, door: t.door, revCents: t.revCents,
-      roi: !measured ? "—" : spend ? `${(t.revCents / spend).toFixed(1)}×` : t.revCents ? "free" : "—",
-      weak: measured && spend > 0 && t.revCents / spend < 1.5,
-      rate: measured && clickCount ? converted / clickCount : 0,
-      verdict: !measured ? (clickCount ? "Getting clicks" : "New") : channelVerdict(clickCount, converted),
-      fidelity,
-      provider: providerOf(external),
-      destination: c.destination,
-      spend,
-    };
-  });
   const active = rows.filter((r) => r.clicks || r.booked || r.door || r.revCents);
   const measurable = active.filter((r) => r.fidelity !== "clicks");
   const top = (f: (r: (typeof rows)[number]) => number) => [...active].sort((a, b) => f(b) - f(a))[0];
@@ -168,7 +178,7 @@ export async function realRange(venue: Venue, key: RangeKey, now: Date): Promise
         clicks: `By clicks, ${top((r) => r.clicks).name} looks like your star.`,
         door: byDoor?.door ? `By guests at the door, ${byDoor.name} leads.` : "No guests checked in yet.",
         rev: byRev?.revCents ? `${byRev.name} earns the most.` : "No revenue traced yet.",
-        rate: byRate ? `${byRate.name} turns ${(byRate.rate * 100).toFixed(1)}% of clicks into guests.` : "Not enough clicks to compare conversion yet.",
+        rate: byRate ? `${byRate.name} turns ${(byRate.rate * 100).toFixed(1)}% of clicks into ${byRate.fidelity === "platform" ? "bookings" : "guests"}.` : "Not enough clicks to compare conversion yet.",
       }
     : { clicks: "Share your links to start ranking channels.", door: "Share your links to start ranking channels.", rev: "Share your links to start ranking channels.", rate: "Share your links to start ranking channels." };
 
@@ -178,7 +188,7 @@ export async function realRange(venue: Venue, key: RangeKey, now: Date): Promise
       const mine = bookings.filter((b) => b.contentId === c.id);
       const t = totals(mine, w.from, w.to);
       const clickCount = clicks.filter((k) => k.contentId === c.id).length;
-      const measuredHere = fidelityOf(c.channel) !== "clicks";
+      const measuredHere = fidelityById.get(c.channelId) !== "clicks";
       const rate = measuredHere && clickCount ? t.door / clickCount : 0;
       const verdict: Verdict = rate >= 0.06 ? "Scale it" : measuredHere && clickCount >= 50 && rate < 0.035 ? "Fix or cut" : "Keep going";
       return { id: c.id, name: c.name, channel: c.channel.detail || c.channel.name, door: t.door, revCents: t.revCents, perGuestCents: t.door ? Math.round(t.revCents / t.door) : 0, verdict };
@@ -187,7 +197,7 @@ export async function realRange(venue: Venue, key: RangeKey, now: Date): Promise
 
   // Reservations: bookings by the night they are for.
   const resBars: Bar[] = bars.map((b) => ({ label: b.label, value: 0 }));
-  for (const b of bookings) if (within(b.date, w.from, w.to)) resBars[bucket(b.date)].value += 1;
+  for (const b of bookings) if (counted(b) && within(b.date, w.from, w.to)) resBars[bucket(b.date)].value += 1;
   // "Due" = booked for a time that has passed, or already arrived (guests can turn up early).
   // Show rate is a door measurement: only bookings made on Monitr's page count, because an
   // imported order's attendance is whatever the platform reported — often nothing at all.
@@ -217,8 +227,9 @@ export async function realRange(venue: Venue, key: RangeKey, now: Date): Promise
       deltas: { rev: delta, res: deltaLabel(cur.res, prev.res), tix: deltaLabel(cur.tix, prev.tix), door: deltaLabel(cur.door, prev.door) },
       showRate: ratio(arrived, dueGuests),
       shareOfSales: ratio(cur.revCents, cur.allRevCents),
-      revPerGuest: cur.door ? money(cur.allRevCents / cur.door) : "—",
-      revPerGuestNote: "all sales ÷ guests at the door",
+      // Platform sales have no door guests behind them here, so they stay out of this ratio.
+      revPerGuest: cur.door ? money(cur.allDoorRevCents / cur.door) : "—",
+      revPerGuestNote: "door sales ÷ guests at the door",
       noShowRate: dueGuests ? `${100 - Math.round((arrived / dueGuests) * 100)}%` : "—",
       noShowNote: dueGuests ? `${fmt(dueGuests - arrived)} of ${fmt(dueGuests)} guests` : "no past bookings yet",
       chart: {
