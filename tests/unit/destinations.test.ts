@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { fidelityNote, hostMatches, normalizeDestination, ownHosts, providerOf, websiteHost, withTracking } from "@/lib/destinations";
+import { destinationLive, fidelityNote, hostMatches, isProvider, normalizeDestination, ownHosts, providerOf, websiteHost, withTracking } from "@/lib/destinations";
 
 describe("tracked-link destinations", () => {
   it("accepts a known platform or the venue's own site, in canonical https form", () => {
@@ -9,6 +9,9 @@ describe("tracked-link destinations", () => {
     expect(normalizeDestination("https://www.opentable.com/r/copper-room", "")).toMatchObject({ provider: "opentable" });
     expect(normalizeDestination("https://partiful.com/e/abc", "")).toMatchObject({ provider: "partiful" });
     expect(normalizeDestination("https://WWW.TheCopperRoom.com/Book", "thecopperroom.com")).toEqual({ url: "https://www.thecopperroom.com/Book", provider: "website" });
+    // www and the apex are the same site, either way round.
+    expect(normalizeDestination("https://thecopperroom.com/book", "www.thecopperroom.com")).toMatchObject({ provider: "website" });
+    expect(normalizeDestination("https://book.thecopperroom.com/", "thecopperroom.com")).toMatchObject({ provider: "website" });
     expect(normalizeDestination("", "")).toEqual({ url: "", provider: "native" });
   });
 
@@ -20,12 +23,16 @@ describe("tracked-link destinations", () => {
     expect(err("http://posh.vip/e/x")).toMatch(/https/);
     expect(err("javascript:alert(1)")).toMatch(/https/);
     expect(err("https://user:pw@posh.vip/e/x")).toMatch(/username/);
+    expect(err("https://posh.vip:8443/e/x")).toMatch(/port/);
     expect(err("https://posh.vip.evil.com/e/x")).toMatch(/Links can point at/); // suffix spoof
     expect(err("https://evil.com/posh.vip")).toMatch(/Links can point at/);
     expect(err("https://evil.com", "thecopperroom.com")).toMatch(/thecopperroom\.com/); // names the allowed site
     expect(err("https://localhost/x")).toMatch(/full web address/);
     expect(err("https://profit-monitr.onrender.com/r/x/ig", "", ["profit-monitr.onrender.com"])).toMatch(/own address/);
     expect(err("https://app.monitr.link/x", "", ["monitr.link"])).toMatch(/own address/);
+    // A shortener or link-in-bio page is never a destination, even when it is "the venue's website".
+    expect(err("https://bit.ly/abc", "bit.ly")).toMatch(/Shortened/);
+    expect(err("https://linktr.ee/copperroom", "linktr.ee")).toMatch(/Shortened/);
     expect(err(`https://posh.vip/${"a".repeat(600)}`)).toMatch(/too long/);
     expect(err("not a url at all")).toMatch(/full web address/);
   });
@@ -51,17 +58,27 @@ describe("tracked-link destinations", () => {
   it("names the provider by host and describes what each fidelity can prove", () => {
     expect(providerOf("")).toBe("native");
     expect(providerOf("https://www.eventbrite.co.uk/e/x")).toBe("eventbrite");
-    expect(providerOf("https://www.thecopperroom.com/book", "thecopperroom.com")).toBe("website");
+    expect(providerOf("https://www.thecopperroom.com/book")).toBe("website");
+    expect(isProvider("posh")).toBe(true);
+    expect([isProvider("toString"), isProvider("__proto__"), isProvider("constructor"), isProvider("")]).toEqual([false, false, false, false]);
     expect(fidelityNote("exact", "native")).toMatch(/measured/);
     expect(fidelityNote("clicks", "posh")).toBe("clicks only — bookings happen on Posh");
+    expect(fidelityNote("clicks", "website")).toBe("clicks only — bookings happen on your own site");
     expect(fidelityNote("platform", "eventbrite")).toMatch(/Eventbrite's export/);
   });
 
-  it("knows its own hosts from the request and the configured origins", () => {
+  it("a link to the venue's own site is live only once the site is verified; platform links always are", () => {
+    expect(destinationLive("https://posh.vip/e/x", false)).toBe(true);
+    expect(destinationLive("https://www.thecopperroom.com/book", false)).toBe(false);
+    expect(destinationLive("https://www.thecopperroom.com/book", true)).toBe(true);
+    expect(destinationLive("", true)).toBe(false);
+  });
+
+  it("knows its own hosts: the request, the configured origins and the short-link host", () => {
     const req = new Request("http://localhost/x", { headers: { host: "Profit-Monitr.onrender.com:10000" } });
     process.env.APP_URL = "https://www.example.com";
-    expect(ownHosts(req)).toEqual(["profit-monitr.onrender.com", "www.example.com"]);
+    expect(ownHosts(req)).toEqual(["profit-monitr.onrender.com", "monitr.link", "www.example.com"]);
     delete process.env.APP_URL;
-    expect(ownHosts()).toEqual([]);
+    expect(ownHosts()).toEqual(["monitr.link"]);
   });
 });

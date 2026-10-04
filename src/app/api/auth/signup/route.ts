@@ -8,7 +8,7 @@ import { firstName, linkHost } from "@/lib/util";
 
 export const POST = handler(async (req: Request) => {
   rateLimit(`signup:${clientKey(req)}`, 10, 60_000);
-  const user = await signup(await readJson<SignupBody>(req));
+  const user = await signup(await readJson<SignupBody>(req), req);
   await createSession(user.id);
   const venue = user.venue!;
   return NextResponse.json({

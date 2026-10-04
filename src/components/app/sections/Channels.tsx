@@ -18,7 +18,7 @@ const VALUE: Record<SortKey, (c: ChannelRow) => number> = { clicks: (c) => c.cli
 const CHOICES: Provider[] = ["native", "posh", "eventbrite", "resy", "opentable", "partiful", "website"];
 const choiceLabel = (p: Provider) => (p === "native" ? "Monitr's booking page" : p === "website" ? "My own website" : PROVIDERS[p].label);
 
-export type Booking = { provider: Provider; url: string };
+export type Booking = { provider: Provider; url: string; websiteVerified: boolean };
 /** Returns the field error to show, or null when saved. */
 export type Save<T> = (value: T) => Promise<string | null>;
 
@@ -29,8 +29,10 @@ type Props = {
   sort: SortKey;
   onSort: (s: SortKey) => void;
   booking: Booking;
-  /** false for the sample venue and the read-only demo */
+  /** the booking page is a venue setting: editable in sample mode too, never for the read-only demo */
   editable: boolean;
+  /** per-row destinations exist only on the venue's own rows, not the sample venue's */
+  rowsEditable: boolean;
   onBooking: Save<Booking>;
   onDestination: (id: string, destination: string) => Promise<string | null>;
 };
@@ -46,18 +48,20 @@ function BookingPage({ booking, editable, onBooking }: Pick<Props, "booking" | "
     e.preventDefault();
     if (busy) return;
     setBusy(true);
-    const problem = await onBooking({ provider, url: provider === "native" ? "" : url });
+    const problem = await onBooking({ provider, url: provider === "native" ? "" : url, websiteVerified: booking.websiteVerified });
     setBusy(false);
     if (problem) return setErr(problem);
     setErr("");
     setOpen(false);
   };
+  const pending = booking.provider === "website" && !!booking.url && !booking.websiteVerified;
   return (
     <div className="ch-booking">
       <div className="ch-booking-row">
         <span><b>Your links send people to</b> {choiceLabel(booking.provider)}{booking.url ? <> · <a href={booking.url} target="_blank" rel="noopener noreferrer">{booking.url}</a></> : null}</span>
         {editable && !open && <button type="button" className="btn btn-xs btn-secondary" onClick={() => setOpen(true)}>Change</button>}
       </div>
+      {pending && <div className="ch-booking-note">We check a venue&apos;s own site before links go live there — usually within a day. Until then your links use Monitr&apos;s booking page.</div>}
       {open && (
         <form className="ch-booking-form" onSubmit={submit} noValidate>
           <div className="au-chips" role="radiogroup" aria-label="Where do guests book today?">
@@ -117,7 +121,7 @@ function Destination({ row, editable, onDestination }: { row: ChannelRow; editab
   );
 }
 
-export function Channels({ rangeLabel, channels, notes, sort, onSort, booking, editable, onBooking, onDestination }: Props) {
+export function Channels({ rangeLabel, channels, notes, sort, onSort, booking, editable, rowsEditable, onBooking, onDestination }: Props) {
   const max = { clicks: Math.max(0, ...channels.map((c) => c.clicks)), door: Math.max(0, ...channels.map((c) => c.door)), rev: Math.max(0, ...channels.map((c) => c.revCents)) };
   // Array.prototype.sort is stable, so ties keep the server's order.
   const rows = [...channels].sort((a, b) => VALUE[sort](b) - VALUE[sort](a));
@@ -147,7 +151,7 @@ export function Channels({ rangeLabel, channels, notes, sort, onSort, booking, e
               <div className="ch-name">
                 <div>{r.name}</div>
                 <div>{r.detail} · code {r.code}</div>
-                <Destination key={r.destination} row={r} editable={editable} onDestination={onDestination} />
+                <Destination key={r.destination} row={r} editable={rowsEditable} onDestination={onDestination} />
               </div>
               <div className="ch-minis">
                 <div className="ch-mini"><span>Clicks</span><div className="track"><div style={{ width: w(r.clicks, max.clicks) }} /></div><span>{fmt(r.clicks)}</span></div>
@@ -156,7 +160,15 @@ export function Channels({ rangeLabel, channels, notes, sort, onSort, booking, e
               </div>
               <div className="ch-verdict">
                 <VerdictPill verdict={r.verdict} />
-                <span>{clicksOnly ? fidelityNote(r.fidelity, r.provider) : r.clicks ? `${(r.rate * 100).toFixed(1)}% click → door` : "no clicks yet"}</span>
+                <span>
+                  {clicksOnly
+                    ? fidelityNote(r.fidelity, r.provider)
+                    : !r.clicks
+                      ? "no clicks yet"
+                      : r.fidelity === "platform"
+                        ? `${(r.rate * 100).toFixed(1)}% click → order · as ${PROVIDERS[r.provider].label} reports`
+                        : `${(r.rate * 100).toFixed(1)}% click → door`}
+                </span>
               </div>
             </div>
           );

@@ -1070,6 +1070,13 @@ button.kpi:hover {
   display: grid;
   gap: 12px;
 }
+.ch-booking-note {
+  font-size: 13px;
+  color: var(--butter-ink);
+  background: var(--butter);
+  border-radius: var(--r-input);
+  padding: 8px 12px;
+}
 .ch-booking-actions {
   display: flex;
   flex-wrap: wrap;
@@ -1101,6 +1108,89 @@ button.kpi:hover {
 .ch-row.is-clicks .ch-mini.is-door .track,
 .ch-row.is-clicks .ch-mini.is-rev .track {
   opacity: 0.35;
+}
+
+/* ── revenue split line ───────────────────────────────────────────────── */
+.rev-split {
+  margin-top: 14px;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--text-body);
+  max-width: 70ch;
+}
+
+/* ── upload orders (Reservations & tickets) ───────────────────────────── */
+.imp {
+  display: grid;
+  gap: 14px;
+}
+.imp-intro,
+.imp-hint,
+.imp-note {
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--text-body);
+  max-width: 70ch;
+}
+.imp-hint {
+  font-size: 13px;
+  color: var(--text-label);
+}
+.imp-file {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+}
+.imp-file input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+.imp-file:focus-within .btn {
+  outline: 2px solid var(--ink);
+  outline-offset: 2px;
+}
+.imp-file-name {
+  font-size: 13px;
+  color: var(--text-label);
+}
+.imp-preview {
+  border: var(--border-card);
+  border-radius: var(--r-row);
+  padding: 14px 16px;
+  font-size: 14px;
+  line-height: 1.5;
+  display: grid;
+  gap: 10px;
+}
+.imp-list,
+.imp-rejects ul {
+  margin: 0;
+  padding-left: 20px;
+  font-size: 13px;
+  color: var(--text-body);
+}
+.imp-rejects summary {
+  cursor: pointer;
+  font-size: 13px;
+  color: var(--text-label);
+}
+.imp-done {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--mint-ink);
+}
+.imp-history {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  display: grid;
+  gap: 4px;
+  font-size: 12px;
+  color: var(--text-label);
 }
 
 /* ── narrow: sidebar becomes a pill tab row ───────────────────────────── */

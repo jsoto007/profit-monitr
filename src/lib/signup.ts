@@ -26,8 +26,8 @@ export function signupsOpen(): boolean {
   return process.env.NODE_ENV !== "production" || process.env.ALLOW_SIGNUPS === "1";
 }
 
-/** Validates all three steps and creates the pilot account. Nothing is charged. */
-export async function signup(b: SignupBody) {
+/** Validates all three steps and creates the pilot account. Nothing is charged. `req` supplies this app's own hosts. */
+export async function signup(b: SignupBody, req?: Request) {
   if (!signupsOpen()) throw new HttpError(503, "Sign-ups aren’t open yet. Please check back soon.");
 
   const f = {
@@ -52,7 +52,7 @@ export async function signup(b: SignupBody) {
   // "My own website" with the website field left empty: the pasted page is the website.
   if (f.bookingProvider === "website" && !f.website) f.website = websiteHost(f.bookingUrl);
   if (!e.bookingUrl && f.bookingProvider !== "native") {
-    const n = normalizeDestination(f.bookingUrl, f.website, ownHosts());
+    const n = normalizeDestination(f.bookingUrl, f.website, ownHosts(req));
     if ("error" in n) e.bookingUrl = n.error;
     else ({ url: bookingUrl, provider: bookingProvider } = n);
   }

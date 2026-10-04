@@ -27,7 +27,7 @@ export async function generateWeeklyBrief(venue: Venue, now = new Date()) {
   // A source whose link lands on Posh / Eventbrite / Resy proves its clicks and nothing
   // after them, so it is never "best" by the door and never "worst" by conversion.
   const measurable = active.filter((c) => c.fidelity !== "clicks");
-  const best = [...active].sort((a, b) => b.door - a.door)[0];
+  const best = [...measurable].sort((a, b) => b.door - a.door)[0] ?? active[0];
   const worst = measurable.filter((c) => c.clicks >= 50).sort((a, b) => a.rate - b.rate)[0];
   const topClicks = active.filter((c) => c.fidelity === "clicks").sort((a, b) => b.clicks - a.clicks)[0];
   const nights = data.reservations.bars;
@@ -59,5 +59,5 @@ export async function generateWeeklyBrief(venue: Venue, now = new Date()) {
   });
   // Guests credited to a link or code — a walk-in with no source is not "from your links".
   const door = active.reduce((s, c) => s + c.door, 0);
-  return { created: count, door, revCents: m.revCents, actions };
+  return { created: count, door, revCents: m.revCents, platformCents: m.platformCents, doorCents: m.doorCents, unattributedCents: m.unattributedCents, actions };
 }

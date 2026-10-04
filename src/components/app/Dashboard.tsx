@@ -34,16 +34,16 @@ async function send(url: string, body: unknown, method = "POST"): Promise<boolea
   }
 }
 
-/** Like `send`, but hands back the server's field error so a form can show it. */
-async function sendForm(url: string, body: unknown, method = "PATCH"): Promise<string | null> {
+/** Like `send`, but hands back what the server stored, or its field error so a form can show it. */
+async function sendForm<T = Record<string, unknown>>(url: string, body: unknown, method = "PATCH"): Promise<{ data: T; error: null } | { data: null; error: string }> {
   try {
     const res = await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
-    if (res.ok) return null;
     const data = await res.json().catch(() => ({}));
+    if (res.ok) return { data: data as T, error: null };
     const fields = data.fields as Record<string, string> | undefined;
-    return (fields && Object.values(fields)[0]) || data.error || "That didn’t save — please try again";
+    return { data: null, error: (fields && Object.values(fields)[0]) || data.error || "That didn’t save — please try again" };
   } catch {
-    return "You appear to be offline. Check your connection and try again.";
+    return { data: null, error: "You appear to be offline. Check your connection and try again." };
   }
 }
 
@@ -70,7 +70,7 @@ export function Dashboard({ initial, initialTab }: { initial: DashboardPayload; 
   const [noteSent, setNoteSent] = useState(!!initial.live.note?.sent);
   const [expert, setExpert] = useState(initial.actions.expertRequested);
   const [switching, setSwitching] = useState(false);
-  const [booking, setBooking] = useState<Booking>({ provider: initial.venue.bookingProvider, url: initial.venue.bookingUrl });
+  const [booking, setBooking] = useState<Booking>({ provider: initial.venue.bookingProvider, url: initial.venue.bookingUrl, websiteVerified: initial.venue.websiteVerified });
   const loading = useRef(new Set<RangeKey>());
   const { show, node: toast } = useToast();
   const live = useLive(initial.live, initial.now, initial.sample);
@@ -171,16 +171,18 @@ export function Dashboard({ initial, initialTab }: { initial: DashboardPayload; 
     }
   };
   const saveBooking = async (b: Booking) => {
-    const problem = await sendForm("/api/venue", { bookingProvider: b.provider, bookingUrl: b.url });
-    if (problem) return problem;
-    setBooking(b);
-    show(b.provider === "native" ? "Links now go to your Monitr booking page" : "Saved — your links now send people there");
+    // The server decides the provider from the pasted page and returns the canonical URL; show that, not the raw input.
+    const r = await sendForm<{ bookingProvider: Booking["provider"]; bookingUrl: string; websiteVerified: boolean }>("/api/venue", { bookingProvider: b.provider, bookingUrl: b.url });
+    if (r.error !== null) return r.error;
+    const saved = { provider: r.data.bookingProvider, url: r.data.bookingUrl, websiteVerified: r.data.websiteVerified };
+    setBooking(saved);
+    show(saved.provider === "native" ? "Links now go to your Monitr booking page" : saved.provider === "website" && !saved.websiteVerified ? "Saved — live once we’ve checked your site" : "Saved — your links now send people there");
     refetchRanges();
     return null;
   };
   const saveDestination = async (id: string, destination: string) => {
-    const problem = await sendForm(`/api/channels/${id}`, { destination });
-    if (problem) return problem;
+    const r = await sendForm(`/api/channels/${id}`, { destination });
+    if (r.error !== null) return r.error;
     show(destination ? "Saved — this link has its own destination" : "This link now uses your booking page");
     refetchRanges();
     return null;
@@ -239,7 +241,7 @@ export function Dashboard({ initial, initialTab }: { initial: DashboardPayload; 
                   <ol className="db-checklist">
                     <li>Put your tracked link in your Instagram bio: <b>{initial.firstLink}</b></li>
                     <li>Tell us where guests book — Posh, Eventbrite, Resy, OpenTable or your site — under <button type="button" className="text-link" onClick={() => go("channels")}>Channels</button></li>
-                    <li>Upload last month&apos;s orders, or <a href="/app/door">check in Friday&apos;s guests</a> at the door</li>
+                    <li>Upload last month&apos;s orders under <button type="button" className="text-link" onClick={() => go("reservations")}>Reservations &amp; tickets</button>, or <a href="/app/door">check in Friday&apos;s guests</a> at the door</li>
                     <li>Switch to your own numbers →</li>
                   </ol>
                 </div>
@@ -256,9 +258,11 @@ export function Dashboard({ initial, initialTab }: { initial: DashboardPayload; 
 
         {tab === "overview" && <Overview m={m} next={next} openCount={open.length} nextBrief={initial.nextBrief} go={go} approve={approveAction} />}
         {tab === "revenue" && <Revenue m={m} channels={data.channels} content={data.content} />}
-        {tab === "reservations" && <Reservations m={m} r={data.reservations} />}
+        {tab === "reservations" && (
+          <Reservations m={m} r={data.reservations} editable={!initial.user.isDemo} sample={initial.sample} imports={initial.imports} onImported={refetchRanges} />
+        )}
         {tab === "channels" && (
-          <Channels rangeLabel={m.rangeLabel} channels={data.channels} notes={data.sortNotes} sort={sort} onSort={setSort} booking={booking} editable={!initial.sample && !initial.user.isDemo} onBooking={saveBooking} onDestination={saveDestination} />
+          <Channels rangeLabel={m.rangeLabel} channels={data.channels} notes={data.sortNotes} sort={sort} onSort={setSort} booking={booking} editable={!initial.user.isDemo} rowsEditable={!initial.sample && !initial.user.isDemo} onBooking={saveBooking} onDestination={saveDestination} />
         )}
         {tab === "live" && <Live live={live} base={initial.live} tz={initial.venue.timezone} noteSent={noteSent} onSend={sendNote} />}
         {tab === "actions" && <Actions data={initial.actions} approved={actionOn} approve={approveAction} expert={expert} onExpert={bookExpert} nextBrief={initial.nextBrief} />}

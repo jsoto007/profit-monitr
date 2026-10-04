@@ -38,10 +38,13 @@ export const POST = handler(async (req: Request) => {
       const brief = await generateWeeklyBrief(v, now);
       if (!brief || !brief.created) continue;
       generated++;
+      // Two recognition bases never share one number: ticket sales the platform took, and money taken at the door.
+      const split = brief.platformCents ? `${money(brief.platformCents)} in ticket sales on your platform · ${money(brief.doorCents)} at the door.\n` : "";
+      const loose = brief.unattributedCents ? `Another ${money(brief.unattributedCents)} of platform orders carried no code or link, so no source gets the credit.\n` : "";
       await sendEmail({
         to: v.user.email,
         subject: `${v.name}: your marketing made ${money(brief.revCents)} last week`,
-        text: `${brief.door} guests came through your links and codes last week.\n\nDo this week:\n${brief.actions.map((a, i) => `${i + 1}. ${a.title}`).join("\n")}\n\nRead the brief: ${siteUrl()}/app?tab=actions`,
+        text: `${brief.door} guests came through your links and codes last week.\n${split}${loose}\nDo this week:\n${brief.actions.map((a, i) => `${i + 1}. ${a.title}`).join("\n")}\n\nRead the brief: ${siteUrl()}/app?tab=actions`,
       });
     } catch (err) {
       failed++;

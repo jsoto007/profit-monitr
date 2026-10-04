@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server";
-import { FormError, handler, HttpError, readJson, str } from "@/lib/api";
+import { handler, HttpError, readJson, str } from "@/lib/api";
 import { requireUser } from "@/lib/auth";
-import { setBookingPage, setSampleData } from "@/lib/dashboard/mutations";
+import { chooseBookingPage, setSampleData } from "@/lib/dashboard/mutations";
 import { assertNotDemo } from "@/lib/dashboard/request";
-import { isProvider, normalizeDestination, ownHosts, type Provider } from "@/lib/destinations";
+import { ownHosts } from "@/lib/destinations";
 
 type Body = { sampleData?: boolean; bookingProvider?: string; bookingUrl?: string };
 
@@ -23,14 +23,7 @@ export const PATCH = handler(async (req: Request) => {
 
   if ("bookingUrl" in b || "bookingProvider" in b) {
     assertNotDemo(user);
-    const chosen: Provider = isProvider(b.bookingProvider) ? b.bookingProvider : "native";
-    const raw = str(b.bookingUrl, 600);
-    if (chosen !== "native" && !raw) throw new FormError({ bookingUrl: "Paste the page where guests book." });
-    // The pasted page decides the provider; an empty page means Monitr's own booking page.
-    const n = chosen === "native" ? { url: "", provider: "native" as Provider } : normalizeDestination(raw, user.venue.website, ownHosts(req));
-    if ("error" in n) throw new FormError({ bookingUrl: n.error });
-    const r = await setBookingPage(user, n.provider, n.url);
-    return NextResponse.json({ ...r, bookingProvider: n.provider, bookingUrl: n.url });
+    return NextResponse.json(await chooseBookingPage(user, b.bookingProvider, str(b.bookingUrl, 600), ownHosts(req)));
   }
 
   throw new HttpError(422, "Nothing to change.");

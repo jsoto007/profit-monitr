@@ -54,6 +54,10 @@ export function sampleRange(key: RangeKey): RangeData {
       summary: R.summary,
       why: WHY,
       revenueHeadline: FIXED.revenueHeadline,
+      // The sample venue books on its own page: everything is taken at the door.
+      platformCents: 0,
+      doorCents: scale(KPI.revCents),
+      unattributedCents: 0,
     },
     channels,
     sortNotes: { ...SORT_NOTES },

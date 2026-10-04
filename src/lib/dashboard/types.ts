@@ -42,6 +42,12 @@ export type Metrics = {
   summary: string;
   why: RichText[];
   revenueHeadline: string;
+  /** of revCents: taken by the venue's ticketing platform at purchase (imported orders) */
+  platformCents: number;
+  /** of revCents: taken at the door */
+  doorCents: number;
+  /** imported orders with no code or tracking link — real sales, credited to no source */
+  unattributedCents: number;
 };
 
 export type ChannelRow = {
@@ -154,8 +160,12 @@ export type LiveData = {
   note: { id: string; body: string; sent: boolean } | null;
 };
 
+export type ImportRecord = { id: string; provider: string; fileName: string; rows: number; created: number; updated: number; rejected: number; unattributed: number; at: string };
+
 export type DashboardPayload = {
-  venue: { name: string; slug: string; website: string; timezone: string; bookingProvider: Provider; bookingUrl: string };
+  /** the owner's recent uploads of platform orders, newest first */
+  imports: ImportRecord[];
+  venue: { name: string; slug: string; website: string; timezone: string; bookingProvider: Provider; bookingUrl: string; websiteVerified: boolean };
   user: { name: string; isDemo: boolean };
   /** true → figures come from the sample venue, not this venue's activity */
   sample: boolean;

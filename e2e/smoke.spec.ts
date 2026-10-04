@@ -214,6 +214,26 @@ test("attribution loop: tracked link → booking → door check-in → revenue o
   expect((await page.request.patch(`/api/channels/${email.id}`, { data: { destination: "" } })).status()).toBe(200);
   const back = await page.request.get(`/r/${slug}/email`, { maxRedirects: 0 });
   expect(back.headers().location).toBe(`http://localhost:3211/book/${slug}?via=email`);
+
+  // Imports: a Posh export credits its orders to the codes that earned them, after a preview.
+  const today = new Date().toLocaleDateString("en-CA");
+  const csv = ["Order ID,Date,Name,Email,Tickets,Total,Promo Code,Tracking Link,Status", `9001,${today} 12:00,Ana Guest,ana@example.test,2,80.00,INSTA,,Paid`, `9002,${today} 12:05,Bo Guest,bo@example.test,1,30.00,,,Paid`].join("\n");
+  await page.goto("/app?tab=reservations");
+  await page.getByRole("radio", { name: "Posh" }).click();
+  await page.getByLabel("Posh export (CSV)").setInputFiles({ name: "posh.csv", mimeType: "text/csv", buffer: Buffer.from(csv) });
+  await expect(page.getByText("2 orders read")).toBeVisible();
+  await expect(page.getByText("Instagram: 1 order · $80")).toBeVisible();
+  await page.getByRole("button", { name: "Import 2 orders" }).click();
+  await expect(page.getByRole("status").filter({ hasText: "Imported 2 new" })).toBeVisible();
+  await page.goto("/app?tab=revenue");
+  await expect(page.locator(".rev-split")).toContainText("$80 was ticket sales your platform took at purchase and $212 was taken at the door");
+  await expect(page.locator(".rev-split")).toContainText("Another $30 of platform orders carried no code or link");
+  const exported = await page.request.get("/api/export");
+  expect(exported.headers()["content-type"]).toContain("text/csv");
+  const text = await exported.text();
+  expect(text.split("\r\n")[0]).toContain("Platform order id");
+  expect(text).toContain("9001");
+  expect(text).toContain("$80.00");
 });
 
 test("demo venue: one button in, read-only on the server, and usable on a phone", async ({ page }) => {

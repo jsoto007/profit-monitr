@@ -1,6 +1,7 @@
 import type { CurrentUser } from "@/lib/auth";
-import { HttpError } from "@/lib/api";
+import { FormError, HttpError } from "@/lib/api";
 import { db } from "@/lib/db";
+import { isProvider, normalizeDestination, websiteHost, type Provider } from "@/lib/destinations";
 import { sendEmail } from "@/lib/email";
 
 /**
@@ -78,10 +79,38 @@ export async function setSampleData(user: CurrentUser, on: boolean): Promise<Dec
 }
 
 /** Where the venue's links send people by default. The URL was validated by the caller (src/lib/destinations.ts). */
-export async function setBookingPage(user: CurrentUser, bookingProvider: string, bookingUrl: string): Promise<Decision> {
+export async function setBookingPage(user: CurrentUser, bookingProvider: string, bookingUrl: string, website?: string): Promise<Decision> {
   if (readOnly(user)) return { ok: true, changed: false };
-  const { count } = await db.venue.updateMany({ where: { id: user.venue.id, NOT: { bookingProvider, bookingUrl } }, data: { bookingProvider, bookingUrl } });
+  const data = { bookingProvider, bookingUrl, ...(website === undefined ? {} : { website }) };
+  const { count } = await db.venue.updateMany({ where: { id: user.venue.id, NOT: data }, data });
   return { ok: true, changed: count === 1 };
+}
+
+export type BookingChoice = Decision & { bookingProvider: Provider; bookingUrl: string; website: string; websiteVerified: boolean };
+
+/**
+ * The owner's answer to "where do guests book?": the pasted page decides the
+ * provider; "Monitr's page" clears it. A page that is not a known platform is
+ * the venue's own site — adopted as its website when none was given (as at
+ * sign-up) — and goes live once the operator has verified it. Throws FormError.
+ */
+export async function chooseBookingPage(user: CurrentUser, chosen: unknown, raw: string, appHosts: string[]): Promise<BookingChoice> {
+  const venue = user.venue;
+  const provider: Provider = isProvider(chosen) ? chosen : "native";
+  if (provider === "native") {
+    const r = await setBookingPage(user, "native", "");
+    return { ...r, bookingProvider: "native", bookingUrl: "", website: venue.website, websiteVerified: venue.websiteVerified };
+  }
+  if (!raw) throw new FormError({ bookingUrl: "Paste the page where guests book." });
+  let website = venue.website;
+  if (provider === "website" && !websiteHost(website)) website = websiteHost(raw);
+  const n = normalizeDestination(raw, website, appHosts);
+  if ("error" in n) throw new FormError({ bookingUrl: n.error });
+  // A new own-site host is a new claim: verification starts over.
+  const siteChanged = n.provider === "website" && websiteHost(website) !== websiteHost(venue.website);
+  const r = await setBookingPage(user, n.provider, n.url, website === venue.website ? undefined : website);
+  if (siteChanged && !readOnly(user)) await db.venue.updateMany({ where: { id: venue.id, websiteVerified: true }, data: { websiteVerified: false } });
+  return { ...r, bookingProvider: n.provider, bookingUrl: n.url, website, websiteVerified: siteChanged ? false : venue.websiteVerified };
 }
 
 /** One link's own destination (the platform's tracking link for that promoter or campaign); empty clears it. Validated by the caller. */

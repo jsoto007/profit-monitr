@@ -1,3 +1,5 @@
+import { linkHost } from "./util";
+
 /**
  * Where a tracked link sends people. Monitr sits on top of the booking page a
  * venue already uses, so a link's destination is the venue's Posh, Eventbrite,
@@ -5,10 +7,13 @@
  * the fallback for venues that have none.
  *
  * Because a destination is any URL the owner pastes, every one is validated
- * at write time against an allow-list: https only, a known platform host or
- * the venue's own website, never this app itself. Otherwise the redirect
- * would be an open relay for phishing. Dependency-free: shared by the sign-up
- * form, the API and the redirect.
+ * at write time against an allow-list: https only, no port or credentials, a
+ * known platform host or the venue's own website, never a link shortener and
+ * never this app itself. Otherwise the redirect would be an open relay for
+ * phishing. The venue's own website is whatever the owner typed, so links to
+ * it are honoured only once the operator has marked the site verified
+ * (Venue.websiteVerified — README → "Verifying a venue's website"); until then
+ * they fall back to Monitr's page. Dependency-free apart from util.
  */
 
 export type Provider = "native" | "posh" | "eventbrite" | "resy" | "opentable" | "partiful" | "website";
@@ -20,17 +25,22 @@ export const PROVIDERS: Record<Provider, { label: string; hosts: string[]; /** h
   resy: { label: "Resy", hosts: ["resy.com"], orders: false },
   opentable: { label: "OpenTable", hosts: ["opentable.com", "opentable.ca", "opentable.co.uk", "opentable.com.au", "opentable.com.mx", "opentable.de", "opentable.jp"], orders: true },
   partiful: { label: "Partiful", hosts: ["partiful.com"], orders: false },
-  website: { label: "Your own website", hosts: [], orders: false },
+  website: { label: "your own site", hosts: [], orders: false },
 };
 
 export const PROVIDER_KEYS = Object.keys(PROVIDERS) as Provider[];
-export const isProvider = (v: unknown): v is Provider => typeof v === "string" && v in PROVIDERS;
+export const isProvider = (v: unknown): v is Provider => typeof v === "string" && Object.hasOwn(PROVIDERS, v);
+
+/** Link shorteners and shared link-in-bio hosts: a destination must be the page itself. */
+const SHORTENERS = ["bit.ly", "tinyurl.com", "t.co", "goo.gl", "is.gd", "buff.ly", "ow.ly", "rebrand.ly", "cutt.ly", "linktr.ee", "lnk.bio", "beacons.ai", "tiny.cc", "short.io", "bl.ink", "rb.gy", "shorturl.at", "s.id", "t.ly", "trib.al", "lnkd.in", "youtu.be", "fb.me", "amzn.to", "dub.sh", "dub.co", "snip.ly", "zpr.io", "surl.li", "v.gd", "u.to", "x.co", "clck.ru", "tr.ee", "linkin.bio", "hoo.be", "campsite.bio", "solo.to", "bio.link", "carrd.co"];
 
 /** Attribution fidelity of a source — what its figures can prove. */
 export type Fidelity = "exact" | "platform" | "clicks";
 
 /** `host` is `allowed` or a subdomain of it ("www.posh.vip" matches "posh.vip"; "posh.vip.evil.com" does not). */
 export const hostMatches = (host: string, allowed: string) => host === allowed || host.endsWith(`.${allowed}`);
+/** "www.x.com" and "x.com" are the same site. */
+const bare = (host: string) => host.replace(/^www\./, "");
 
 /** The venue's own site as a bare host: "thecopperroom.com", "https://www.x.com/menu" → "www.x.com". Empty when unusable. */
 export function websiteHost(website: string): string {
@@ -44,24 +54,22 @@ export function websiteHost(website: string): string {
   }
 }
 
-/** The provider a URL belongs to by its host; "website" when it is the venue's own site; "native" for an empty destination. */
-export function providerOf(url: string, venueWebsite = ""): Provider {
+const platformOf = (host: string): Provider | null => PROVIDER_KEYS.find((k) => PROVIDERS[k].hosts.some((h) => hostMatches(host, h))) ?? null;
+
+/** The provider a URL belongs to by its host; "website" when it is not a known platform; "native" for an empty destination. */
+export function providerOf(url: string): Provider {
   if (!url) return "native";
-  let host = "";
   try {
-    host = new URL(url).hostname.toLowerCase();
+    return platformOf(new URL(url).hostname.toLowerCase()) ?? "website";
   } catch {
     return "website";
   }
-  for (const key of PROVIDER_KEYS) if (PROVIDERS[key].hosts.some((h) => hostMatches(host, h))) return key;
-  // Not a known platform: it passed the allow-list, so it is the venue's own site.
-  void venueWebsite;
-  return "website";
 }
 
 export type Normalized = { url: string; provider: Provider } | { error: string };
 
 const MAX_URL = 500;
+const EXAMPLE = "Enter a full web address, like https://posh.vip/e/your-event.";
 
 /**
  * Validates a pasted destination against the allow-list and returns it in
@@ -75,18 +83,20 @@ export function normalizeDestination(raw: unknown, venueWebsite: string, appHost
   try {
     url = new URL(/^[a-z][a-z0-9+.-]*:/i.test(text) ? text : `https://${text}`);
   } catch {
-    return { error: "Enter a full web address, like https://posh.vip/e/your-event." };
+    return { error: EXAMPLE };
   }
   if (url.protocol !== "https:") return { error: "Links must start with https://." };
   if (url.username || url.password) return { error: "Links can't carry a username or password." };
+  if (url.port) return { error: "Links can't carry a port number." };
   const host = url.hostname.toLowerCase().replace(/\.$/, "");
   url.hostname = host;
-  if (!host.includes(".")) return { error: "Enter a full web address, like https://posh.vip/e/your-event." };
+  if (!host.includes(".")) return { error: EXAMPLE };
   if (appHosts.some((h) => h && hostMatches(host, h.toLowerCase()))) return { error: "That's this app's own address — point the link at your booking page instead." };
-  const own = websiteHost(venueWebsite);
-  const platform = PROVIDER_KEYS.find((k) => PROVIDERS[k].hosts.some((h) => hostMatches(host, h)));
+  if (SHORTENERS.some((h) => hostMatches(host, h))) return { error: "Shortened links can't be a destination — paste the page itself." };
+  const platform = platformOf(host);
   if (platform) return { url: url.toString(), provider: platform };
-  if (own && hostMatches(host, own)) return { url: url.toString(), provider: "website" };
+  const own = websiteHost(venueWebsite);
+  if (own && hostMatches(bare(host), bare(own))) return { url: url.toString(), provider: "website" };
   return { error: `Links can point at Posh, Eventbrite, Resy, OpenTable, Partiful or your own website${own ? ` (${own})` : " — add it under your venue details first"}.` };
 }
 
@@ -107,9 +117,12 @@ export function withTracking(url: string, channelSlug: string): string {
   }
 }
 
-/** Hosts this app answers on: the request's own host (when there is one) plus the configured public origins. */
+/**
+ * Hosts this app answers on: the request's own host (when there is one), the
+ * configured public origin, Render's own URL and the short-link host.
+ */
 export function ownHosts(req?: Request): string[] {
-  const hosts = [req?.headers.get("host") || ""];
+  const hosts = [req?.headers.get("host") || "", linkHost()];
   for (const v of [process.env.APP_URL, process.env.RENDER_EXTERNAL_URL]) {
     if (!v) continue;
     try {
@@ -118,8 +131,11 @@ export function ownHosts(req?: Request): string[] {
       /* ignore a malformed origin */
     }
   }
-  return hosts.map((h) => h.toLowerCase().replace(/:\d+$/, "")).filter(Boolean);
+  return [...new Set(hosts.map((h) => h.toLowerCase().replace(/:\d+$/, "")).filter(Boolean))];
 }
+
+/** A link to the venue's own site is live only once the site has been verified; a platform link always is. */
+export const destinationLive = (url: string, websiteVerified: boolean) => !!url && (providerOf(url) !== "website" || websiteVerified);
 
 /** One line for the owner: what a source with this fidelity can prove. */
 export function fidelityNote(f: Fidelity, provider: Provider): string {
