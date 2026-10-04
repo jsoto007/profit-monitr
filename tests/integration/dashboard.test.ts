@@ -3,11 +3,13 @@ import { FormError, HttpError } from "@/lib/api";
 import { checkIn, createBooking, releaseBooking, ticketAmountCents } from "@/lib/bookings";
 import { generateWeeklyBrief } from "@/lib/brief";
 import { getActions, getDashboard, getLive, getRange, getWebsite } from "@/lib/dashboard";
-import { approveAction, approveAgentNote, approveRecommendation, requestExpert, setSampleData } from "@/lib/dashboard/mutations";
+import { approveAction, approveAgentNote, approveRecommendation, requestExpert, setBookingPage, setChannelDestination, setSampleData } from "@/lib/dashboard/mutations";
 import { realEventsSince } from "@/lib/dashboard/real";
 import { db } from "@/lib/db";
+import { signup } from "@/lib/signup";
 import { serviceDay, zonedParts } from "@/lib/time";
 import { money } from "@/lib/util";
+import { destinationFor, GET as redirectGet, HEAD as redirectHead } from "@/app/r/[venue]/[...path]/route";
 import { makeAccount, resetDb } from "../helpers";
 
 beforeEach(resetDb);
@@ -284,6 +286,92 @@ describe("attribution loop on real data", () => {
     expect(await realEventsSince(user.venue, cursor)).toEqual([]);
     await checkIn(user.venue.id, booking.confirmation, "80");
     expect((await realEventsSince(user.venue, cursor)).map((e) => [e.k, e.amountCents])).toEqual([["door", 8_000]]);
+  });
+});
+
+describe("overlay: links that land on the venue's own platform", () => {
+  const ctx = (venue: string, path: string[]) => ({ params: Promise.resolve({ venue, path }) });
+  const req = (method = "GET", agent = "Mozilla/5.0 (iPhone)") => new Request("http://localhost:10000/r/x/y", { method, headers: { host: "app.test", "user-agent": agent, "cf-connecting-ip": "203.0.113.9" } });
+
+  it("sends people to the channel's own link, else the venue's booking page, else Monitr's page — and still counts the click", async () => {
+    let user = await makeAccount({ venue: "Overlay Bar" });
+    const ig = await db.channel.findFirstOrThrow({ where: { venueId: user.venue.id, slug: "ig" } });
+    const email = await db.channel.findFirstOrThrow({ where: { venueId: user.venue.id, slug: "email" } });
+
+    // Native: the redirect lands on Monitr's own booking page with the source attached.
+    let res = await redirectGet(req(), ctx("overlay-bar", ["ig"]));
+    expect([res.status, res.headers.get("location")]).toEqual([302, "http://app.test/book/overlay-bar?via=ig"]);
+
+    // The venue books on Posh: every link goes there.
+    expect(await setBookingPage(user, "posh", "https://posh.vip/e/sunset")).toEqual({ ok: true, changed: true });
+    expect(await setBookingPage(user, "posh", "https://posh.vip/e/sunset")).toEqual({ ok: true, changed: false });
+    res = await redirectGet(req(), ctx("overlay-bar", ["ig"]));
+    expect(res.headers.get("location")).toBe("https://posh.vip/e/sunset");
+
+    // One promoter has their own Eventbrite tracking link: it wins, and Eventbrite's aff carries the channel.
+    expect(await setChannelDestination(user, email.id, "https://www.eventbrite.com/e/jazz-123")).toEqual({ ok: true, changed: true });
+    res = await redirectGet(req(), ctx("overlay-bar", ["email"]));
+    expect(res.headers.get("location")).toBe("https://www.eventbrite.com/e/jazz-123?aff=email");
+    // HEAD (link checkers) goes to the same place without counting; the one GET per visitor counted once each.
+    const head = await redirectHead(req("HEAD"), ctx("overlay-bar", ["email"]));
+    expect(head.headers.get("location")).toBe("https://www.eventbrite.com/e/jazz-123?aff=email");
+    await redirectGet(req("GET", "facebookexternalhit/1.1"), ctx("overlay-bar", ["email"])); // unfurler
+    expect(await db.clickEvent.count({ where: { channelId: ig.id } })).toBe(1);
+    expect(await db.clickEvent.count({ where: { channelId: email.id } })).toBe(1);
+
+    // Pure resolution, no database: content keeps riding on the native page only.
+    user = await reload(user.id);
+    const r = new Request("http://localhost/r", { headers: { host: "app.test" } });
+    expect(destinationFor(r, { channel: { slug: "ig", destination: "" }, venue: { slug: "overlay-bar", bookingUrl: "" }, content: { slug: "reel" } }).toString()).toBe("http://app.test/book/overlay-bar?via=ig&c=reel");
+    expect(destinationFor(r, { channel: { slug: "ig", destination: "" }, venue: { slug: "overlay-bar", bookingUrl: user.venue.bookingUrl }, content: { slug: "reel" } }).toString()).toBe("https://posh.vip/e/sunset");
+  });
+
+  it("a clicks-only source never earns a conversion verdict, never ranks worst, and the brief asks for the platform's orders instead", async () => {
+    let user = await makeAccount({ venue: "Posh Nights" });
+    await setSampleData(user, false);
+    await setBookingPage(user, "posh", "https://posh.vip/e/late");
+    user = await reload(user.id);
+    const ig = await db.channel.findFirstOrThrow({ where: { venueId: user.venue.id, slug: "ig" } });
+    const lastWeek = new Date(Date.now() - 7 * 86_400_000);
+    await db.clickEvent.createMany({ data: Array.from({ length: 60 }, () => ({ channelId: ig.id })) });
+    await db.clickEvent.createMany({ data: Array.from({ length: 80 }, () => ({ channelId: ig.id, createdAt: lastWeek })) });
+
+    const d = await getRange(user.venue, "week");
+    const row = d.channels.find((c) => c.code === "INSTA")!;
+    expect(row).toMatchObject({ clicks: 60, door: 0, revCents: 0, rate: 0, roi: "—", weak: false, verdict: "Getting clicks", fidelity: "clicks", provider: "posh", destination: "" });
+    expect(d.metrics.why[0]).toBe("**Instagram** sent 60 people to your Posh page — upload its orders and the bookings get credited here.");
+    expect(d.sortNotes.rate).toBe("Not enough clicks to compare conversion yet."); // never "turns 0.0% of clicks into guests"
+
+    const brief = await generateWeeklyBrief(user.venue);
+    expect(brief!.actions.map((a) => a.title)).toEqual(["Upload last week's Posh orders", "Give every promoter and influencer their own link and code", expect.stringMatching(/^Plan something for/)]);
+    expect(brief!.actions.some((a) => a.title.startsWith("Fix or pause"))).toBe(false);
+  });
+
+  it("destinations are validated at write time and scoped to the owner's venue", async () => {
+    const [mine, theirs] = [await makeAccount(), await makeAccount()];
+    const myIg = await db.channel.findFirstOrThrow({ where: { venueId: mine.venue.id, slug: "ig" } });
+    await expect(setChannelDestination(theirs, myIg.id, "https://posh.vip/e/x")).rejects.toMatchObject({ status: 404 });
+    await expect(setChannelDestination(mine, "nope", "https://posh.vip/e/x")).rejects.toMatchObject({ status: 404 });
+    expect((await db.channel.findUniqueOrThrow({ where: { id: myIg.id } })).destination).toBe("");
+    const demo = await makeAccount({ isDemo: true });
+    expect(await setBookingPage(demo, "posh", "https://posh.vip/e/x")).toEqual({ ok: true, changed: false });
+    expect((await reload(demo.id)).venue.bookingUrl).toBe("");
+  });
+
+  it("sign-up stores where guests book, in canonical form, and refuses a page off the allow-list", async () => {
+    const base = { name: "Dana Test", password: "correct horse 9!", vtype: "Nightclub", city: "Brooklyn, NY", website: "", sells: ["Event tickets"], promos: [], agree: true };
+    const posh = await signup({ ...base, email: "posh@example.test", venue: "Posh Venue", bookingProvider: "posh", bookingUrl: "posh.vip/e/late " });
+    expect((await reload(posh.id)).venue).toMatchObject({ bookingProvider: "posh", bookingUrl: "https://posh.vip/e/late" });
+    // "My own website" with the website field empty: the pasted page is the website.
+    const own = await signup({ ...base, email: "own@example.test", venue: "Own Site", bookingProvider: "website", bookingUrl: "https://www.ownsite.example/book" });
+    expect((await reload(own.id)).venue).toMatchObject({ bookingProvider: "website", bookingUrl: "https://www.ownsite.example/book", website: "www.ownsite.example" });
+    const bad = await signup({ ...base, email: "bad@example.test", venue: "Bad Link", bookingProvider: "resy", bookingUrl: "https://evil.example/phish" }).catch((e) => e);
+    expect(Object.keys(bad.fields)).toEqual(["bookingUrl"]);
+    const none = await signup({ ...base, email: "none@example.test", venue: "No Link", bookingProvider: "eventbrite", bookingUrl: "" }).catch((e) => e);
+    expect(none.fields).toEqual({ bookingUrl: "Paste the page where guests book." });
+    // Unknown provider or no provider: Monitr's own page, no URL kept.
+    const native = await signup({ ...base, email: "native@example.test", venue: "Native", bookingProvider: "ticketmaster", bookingUrl: "https://posh.vip/e/ignored" });
+    expect((await reload(native.id)).venue).toMatchObject({ bookingProvider: "native", bookingUrl: "" });
   });
 });
 

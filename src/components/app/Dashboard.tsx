@@ -9,7 +9,7 @@ import type { DashboardPayload, RangeData, SortKey } from "@/lib/dashboard/types
 import { RANGE_KEYS, type RangeKey } from "@/lib/time";
 import { fmt, money } from "@/lib/util";
 import { Actions } from "./sections/Actions";
-import { Channels } from "./sections/Channels";
+import { Channels, type Booking } from "./sections/Channels";
 import { Live } from "./sections/Live";
 import { Overview } from "./sections/Overview";
 import { Reservations } from "./sections/Reservations";
@@ -31,6 +31,19 @@ async function send(url: string, body: unknown, method = "POST"): Promise<boolea
     return res.ok;
   } catch {
     return false;
+  }
+}
+
+/** Like `send`, but hands back the server's field error so a form can show it. */
+async function sendForm(url: string, body: unknown, method = "PATCH"): Promise<string | null> {
+  try {
+    const res = await fetch(url, { method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    if (res.ok) return null;
+    const data = await res.json().catch(() => ({}));
+    const fields = data.fields as Record<string, string> | undefined;
+    return (fields && Object.values(fields)[0]) || data.error || "That didn’t save — please try again";
+  } catch {
+    return "You appear to be offline. Check your connection and try again.";
   }
 }
 
@@ -57,6 +70,7 @@ export function Dashboard({ initial, initialTab }: { initial: DashboardPayload; 
   const [noteSent, setNoteSent] = useState(!!initial.live.note?.sent);
   const [expert, setExpert] = useState(initial.actions.expertRequested);
   const [switching, setSwitching] = useState(false);
+  const [booking, setBooking] = useState<Booking>({ provider: initial.venue.bookingProvider, url: initial.venue.bookingUrl });
   const loading = useRef(new Set<RangeKey>());
   const { show, node: toast } = useToast();
   const live = useLive(initial.live, initial.now, initial.sample);
@@ -149,6 +163,29 @@ export function Dashboard({ initial, initialTab }: { initial: DashboardPayload; 
     router.refresh();
   };
 
+  // A destination changes what every channel row can prove, so the server recomputes the ranges.
+  const refetchRanges = () => {
+    for (const k of RANGE_KEYS) {
+      loading.current.delete(k);
+      ensure(k);
+    }
+  };
+  const saveBooking = async (b: Booking) => {
+    const problem = await sendForm("/api/venue", { bookingProvider: b.provider, bookingUrl: b.url });
+    if (problem) return problem;
+    setBooking(b);
+    show(b.provider === "native" ? "Links now go to your Monitr booking page" : "Saved — your links now send people there");
+    refetchRanges();
+    return null;
+  };
+  const saveDestination = async (id: string, destination: string) => {
+    const problem = await sendForm(`/api/channels/${id}`, { destination });
+    if (problem) return problem;
+    show(destination ? "Saved — this link has its own destination" : "This link now uses your booking page");
+    refetchRanges();
+    return null;
+  };
+
   const m = data.metrics;
   const nav = (short: 0 | 1) =>
     TABS.map((t) => (
@@ -194,10 +231,18 @@ export function Dashboard({ initial, initialTab }: { initial: DashboardPayload; 
         </nav>
 
         {!initial.user.isDemo && (
-          <div className="db-notice">
+          <div className={`db-notice${initial.sample ? " is-checklist" : ""}`}>
             {initial.sample ? (
               <>
-                <span><b>You&apos;re looking at a sample venue.</b> Your own numbers start with your first tracked booking — your link is {initial.firstLink}.</span>
+                <div>
+                  <span><b>You&apos;re looking at a sample venue.</b> Your first week, in four steps:</span>
+                  <ol className="db-checklist">
+                    <li>Put your tracked link in your Instagram bio: <b>{initial.firstLink}</b></li>
+                    <li>Tell us where guests book — Posh, Eventbrite, Resy, OpenTable or your site — under <button type="button" className="text-link" onClick={() => go("channels")}>Channels</button></li>
+                    <li>Upload last month&apos;s orders, or <a href="/app/door">check in Friday&apos;s guests</a> at the door</li>
+                    <li>Switch to your own numbers →</li>
+                  </ol>
+                </div>
                 <button type="button" className="btn btn-xs" onClick={() => switchData(false)} disabled={switching}>Show my data</button>
               </>
             ) : (
@@ -212,7 +257,9 @@ export function Dashboard({ initial, initialTab }: { initial: DashboardPayload; 
         {tab === "overview" && <Overview m={m} next={next} openCount={open.length} nextBrief={initial.nextBrief} go={go} approve={approveAction} />}
         {tab === "revenue" && <Revenue m={m} channels={data.channels} content={data.content} />}
         {tab === "reservations" && <Reservations m={m} r={data.reservations} />}
-        {tab === "channels" && <Channels rangeLabel={m.rangeLabel} channels={data.channels} notes={data.sortNotes} sort={sort} onSort={setSort} />}
+        {tab === "channels" && (
+          <Channels rangeLabel={m.rangeLabel} channels={data.channels} notes={data.sortNotes} sort={sort} onSort={setSort} booking={booking} editable={!initial.sample && !initial.user.isDemo} onBooking={saveBooking} onDestination={saveDestination} />
+        )}
         {tab === "live" && <Live live={live} base={initial.live} tz={initial.venue.timezone} noteSent={noteSent} onSend={sendNote} />}
         {tab === "actions" && <Actions data={initial.actions} approved={actionOn} approve={approveAction} expert={expert} onExpert={bookExpert} nextBrief={initial.nextBrief} />}
         {tab === "website" && <Website data={initial.website} approved={recOn} approve={approveRec} />}

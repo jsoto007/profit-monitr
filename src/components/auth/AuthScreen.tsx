@@ -6,6 +6,7 @@ import { useEffect, useRef, useState, type ChangeEvent, type FormEvent } from "r
 import { CheckIcon } from "@/components/ui/icons";
 import { Logo } from "@/components/ui/Logo";
 import { SITE } from "@/data/site";
+import type { Provider } from "@/lib/destinations";
 import { firstName, passwordScore, PRICE, PROMOS, SELLS, VENUE_TYPES } from "@/lib/util";
 import { EMPTY_SIGNUP, validateStep, type Errors, type SignupFields } from "@/lib/validation";
 import "./auth.css";
@@ -20,7 +21,17 @@ const STRENGTH = ["", "Weak", "Fair", "Good", "Strong"];
 const PROGRESS = ["0%", "33%", "66%", "100%", "100%"];
 const TITLES: Record<Mode, string> = { signup: "Create your account — Profit Monitr", login: "Log in — Profit Monitr" };
 /** Which step owns a field, so a server-side error can send the form back to it. */
-const STEP_OF: Record<string, number> = { name: 1, email: 1, password: 1, venue: 2, city: 2, sells: 2, agree: 3 };
+const STEP_OF: Record<string, number> = { name: 1, email: 1, password: 1, venue: 2, city: 2, sells: 2, bookingUrl: 2, agree: 3 };
+/** "Where do guests book today?" — the pasted page is where every tracked link will send people. */
+const BOOKING: { key: Provider; label: string; placeholder: string }[] = [
+  { key: "native", label: "Not yet — use Monitr's page", placeholder: "" },
+  { key: "posh", label: "Posh", placeholder: "https://posh.vip/e/your-event" },
+  { key: "eventbrite", label: "Eventbrite", placeholder: "https://www.eventbrite.com/e/your-event-tickets-123" },
+  { key: "resy", label: "Resy", placeholder: "https://resy.com/cities/new-york-ny/venues/your-venue" },
+  { key: "opentable", label: "OpenTable", placeholder: "https://www.opentable.com/r/your-venue" },
+  { key: "partiful", label: "Partiful", placeholder: "https://partiful.com/e/your-event" },
+  { key: "website", label: "My own website", placeholder: "https://yourvenue.com/book" },
+];
 /** Long enough that the "Creating your account…" state reads as work, not a flash. */
 const MIN_SUBMIT_MS = 700;
 
@@ -98,6 +109,7 @@ export function AuthScreen({ initialMode }: { initialMode: Mode }) {
     const r = await post<Done>("/api/auth/signup", {
       name: f.name, email: f.email, password: f.password,
       venue: f.venue, vtype: f.vtype, city: f.city, website: f.website, sells: f.sells, promos: f.promos,
+      bookingProvider: f.bookingProvider, bookingUrl: f.bookingUrl,
       timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
       agree: f.agree,
     });
@@ -257,6 +269,16 @@ export function AuthScreen({ initialMode }: { initialMode: Mode }) {
                           <button key={t} type="button" aria-pressed={f.promos.includes(t)} className="chip" onClick={() => toggle("promos", t)}>{t}</button>
                         ))}
                       </div>
+                    </div>
+                    <div className="au-group" role="radiogroup" aria-labelledby="booking-label">
+                      <span id="booking-label" className="au-group-label">Where do guests book today?</span>
+                      <p className="au-group-help">Your tracked links will send people there. Nothing moves.</p>
+                      <div className="au-chips">
+                        {BOOKING.map((o) => (
+                          <button key={o.key} type="button" role="radio" aria-checked={f.bookingProvider === o.key} className="chip" onClick={() => { setF((s) => ({ ...s, bookingProvider: o.key })); setErr((s) => ({ ...s, bookingUrl: "" })); }}>{o.label}</button>
+                        ))}
+                      </div>
+                      {f.bookingProvider !== "native" && input("bookingUrl", "Your booking page", { inputMode: "url", autoComplete: "url", placeholder: BOOKING.find((o) => o.key === f.bookingProvider)?.placeholder })}
                     </div>
                     <div className="au-buttons">
                       <button type="button" className="btn btn-secondary" onClick={back}>Back</button>

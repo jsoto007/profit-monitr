@@ -1,3 +1,4 @@
+import type { Fidelity, Provider } from "@/lib/destinations";
 import type { RangeKey } from "@/lib/time";
 
 /**
@@ -8,7 +9,8 @@ import type { RangeKey } from "@/lib/time";
  */
 
 export type Verdict = "Scale it" | "Keep going" | "Fix or cut";
-export type ChannelVerdict = "Working" | "Steady" | "Not working" | "New";
+/** "Getting clicks" is the only verdict a clicks-only source can earn: nothing after the click is measurable here. */
+export type ChannelVerdict = "Working" | "Steady" | "Not working" | "New" | "Getting clicks";
 export type SortKey = "clicks" | "door" | "rev" | "rate";
 export const SORT_KEYS: SortKey[] = ["clicks", "door", "rev", "rate"];
 
@@ -55,9 +57,15 @@ export type ChannelRow = {
   roi: string;
   /** greyed out in "Revenue by channel" */
   weak: boolean;
-  /** door ÷ clicks, unscaled; drives the verdict and the Conversion sort */
+  /** door ÷ clicks, unscaled; drives the verdict and the Conversion sort. 0 for a clicks-only source */
   rate: number;
   verdict: ChannelVerdict;
+  /** what this source's figures can prove: exact (Monitr page + door), platform (imported orders) or clicks */
+  fidelity: Fidelity;
+  /** where its link sends people */
+  provider: Provider;
+  /** the pasted destination, for editing; empty = the venue's booking page */
+  destination: string;
 };
 
 export type ContentRow = {
@@ -147,7 +155,7 @@ export type LiveData = {
 };
 
 export type DashboardPayload = {
-  venue: { name: string; slug: string; website: string; timezone: string };
+  venue: { name: string; slug: string; website: string; timezone: string; bookingProvider: Provider; bookingUrl: string };
   user: { name: string; isDemo: boolean };
   /** true → figures come from the sample venue, not this venue's activity */
   sample: boolean;

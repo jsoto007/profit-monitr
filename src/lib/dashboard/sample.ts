@@ -27,6 +27,10 @@ export function sampleRange(key: RangeKey): RangeData {
     weak: c.roi === WEAK_ROI,
     rate: c.door / c.clicks,
     verdict: channelVerdict(c.clicks, c.door),
+    // The sample venue books on its Monitr page: every figure is measured.
+    fidelity: "exact",
+    provider: "native",
+    destination: "",
   }));
 
   return {

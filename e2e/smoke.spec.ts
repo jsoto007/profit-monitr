@@ -41,12 +41,15 @@ test("landing: message, sections, routing and SEO files", async ({ page, request
   await expect(page).toHaveURL(/\/signup$/);
   expect(errors).toEqual([]);
 
-  for (const path of ["/privacy", "/pilot-terms"]) expect((await request.get(path)).status(), path).toBe(200);
+  await page.goto("/pilot-terms");
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("A free pilot, in plain words.");
+  await page.goto("/privacy");
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("What we collect, and why.");
   expect((await request.get("/robots.txt")).status()).toBe(200);
   expect(await (await request.get("/sitemap.xml")).text()).toContain("/brief/sample");
   expect(await (await request.get("/llms.txt")).text()).toContain("# Profit Monitr");
   expect((await request.get("/opengraph-image")).headers()["content-type"]).toContain("image/png");
-  expect(await (await request.get("/api/health")).json()).toEqual({ ok: true });
+  expect(await (await request.get("/api/health")).json()).toMatchObject({ ok: true });
 
   // The short-link domain serves tracked links directly once it points at the app.
   const short = await request.get("/the-copper-room/ig", { headers: { host: "monitr.link" }, maxRedirects: 0 });
@@ -84,6 +87,12 @@ test("sign-up: three steps with validation and no card, then the dashboard on sa
   await page.getByLabel("City").fill("Brooklyn, NY");
   await page.getByRole("radio", { name: "Bar & lounge" }).click();
   await page.getByRole("button", { name: "Email", exact: true }).click();
+  // Where guests book: picking a platform asks for its page; this venue keeps Monitr's own page.
+  await page.getByRole("radio", { name: "Posh", exact: true }).click();
+  await expect(page.getByLabel("Your booking page")).toBeVisible();
+  await page.getByRole("button", { name: "Continue →" }).click();
+  await expect(page.getByText("Paste the page where guests book.")).toBeVisible();
+  await page.getByRole("radio", { name: "Not yet — use Monitr's page" }).click();
   await page.getByRole("button", { name: "Continue →" }).click();
 
   await expect(page.getByRole("heading", { name: "Your free pilot" })).toBeVisible();
@@ -189,12 +198,30 @@ test("attribution loop: tracked link → booking → door check-in → revenue o
   await page.getByRole("navigation", { name: "Sections" }).first().getByRole("button", { name: "Revenue" }).click();
   await expect(page.locator(".rev-row").first()).toContainText("Instagram");
   await expect(page.locator(".rev-row").first()).toContainText("$212");
+
+  // Overlay: a link can point at the venue's own platform instead. The owner's session carries the API calls.
+  const channels = (await (await page.request.get("/api/channels?range=week")).json()).channels as { id: string; code: string }[];
+  const email = channels.find((c) => c.code === "EMAIL")!;
+  const bad = await page.request.patch(`/api/channels/${email.id}`, { data: { destination: "https://evil.example/phish" } });
+  expect(bad.status()).toBeGreaterThanOrEqual(400);
+  expect((await bad.json()).fields.destination).toContain("Links can point at");
+  expect((await page.request.patch(`/api/channels/${email.id}`, { data: { destination: "www.eventbrite.com/e/jazz-night-123" } })).status()).toBe(200);
+  const tracked = await page.request.get(`/r/${slug}/email`, { maxRedirects: 0 });
+  expect([tracked.status(), tracked.headers().location]).toEqual([302, "https://www.eventbrite.com/e/jazz-night-123?aff=email"]);
+  await page.goto("/app?tab=channels");
+  await expect(page.locator(".ch-row.is-clicks")).toHaveCount(1);
+  await expect(page.locator(".ch-row.is-clicks")).toContainText("clicks only — bookings happen on Eventbrite");
+  expect((await page.request.patch(`/api/channels/${email.id}`, { data: { destination: "" } })).status()).toBe(200);
+  const back = await page.request.get(`/r/${slug}/email`, { maxRedirects: 0 });
+  expect(back.headers().location).toBe(`http://localhost:3211/book/${slug}?via=email`);
 });
 
-test("demo venue: read-only on the server, and usable on a phone", async ({ page }) => {
+test("demo venue: one button in, read-only on the server, and usable on a phone", async ({ page }) => {
   await page.goto("/login");
   await expect(page.getByRole("heading", { name: "Your Monday brief is waiting." })).toBeVisible();
-  await login(page, "demo@copperroom.com", "monitr123");
+  await expect(page.getByText("monitr123")).toHaveCount(0); // credentials are no longer printed
+  await page.getByRole("button", { name: "Explore the demo venue" }).click();
+  await expect(page).toHaveURL(/\/app$/);
   await expect(page.locator(".db-who")).toContainText("The Copper Room");
   await expect(page.getByText("You're looking at a sample venue.")).toHaveCount(0);
 

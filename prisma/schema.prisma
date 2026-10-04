@@ -53,9 +53,15 @@ model Venue {
   sellsTickets      Boolean  @default(false)
   promoChannels     String[] @default([])
 
-  // Billing. Card numbers never reach this server; only the last four digits
-  // are stored. Nothing is charged yet: subscriptionStatus is "demo" and the
-  // two provider ids stay null until real billing is built.
+  // Where guests book today. Tracked links send people there (src/lib/destinations.ts);
+  // "native" means Monitr's own /book/<venue> page and an empty bookingUrl.
+  bookingProvider String @default("native") // native | posh | eventbrite | resy | opentable | partiful | website
+  bookingUrl      String @default("")
+
+  // Billing. Nothing is charged: accounts are "pilot" (free) or "demo" (the
+  // shared public login). cardLast4 is a leftover of the prototype card form
+  // and is no longer written; the two provider ids stay null until real
+  // billing is built (see claude-reports/Money-Safety/).
   cardLast4            String  @default("")
   stripeCustomerId     String? @unique
   stripeSubscriptionId String? @unique
@@ -90,6 +96,9 @@ model Channel {
   discountPct      Int?
   weeklySpendCents Int     @default(0)
   active           Boolean @default(true)
+  /// Where this link sends people — the platform's own tracking link for this
+  /// promoter or campaign. Empty = the venue's booking page (Venue.bookingUrl or native).
+  destination      String  @default("")
 
   createdAt DateTime @default(now()) @db.Timestamptz(3)
 

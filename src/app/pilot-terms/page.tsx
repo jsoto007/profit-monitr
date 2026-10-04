@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { LegalPage } from "@/components/legal/LegalPage";
-import { SITE } from "@/data/site";
+import { CONTACT, SITE } from "@/data/site";
 
 export const metadata: Metadata = {
   title: "Pilot terms",
@@ -50,7 +50,7 @@ export default function PilotTermsPage() {
 
       <section>
         <h2>How it ends</h2>
-        <p>Either of us can end the pilot at any time with an email. If you end it, we delete your data on request. If we end it, we tell you why and give you time to export.</p>
+        <p>Either of us can end the pilot at any time{CONTACT.email ? ` with an email to ${CONTACT.email}` : ""}. If you end it, we delete your data on request. If we end it, we tell you why and give you time to export.</p>
       </section>
 
       <section>

@@ -2,6 +2,7 @@ import { DEMO } from "@/data/sample";
 import type { Venue } from "@/generated/prisma/client";
 import type { CurrentUser } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { isProvider } from "@/lib/destinations";
 import { calendarDate, nextBriefLabel, RANGE_KEYS, weekStart, type RangeKey } from "@/lib/time";
 import { linkHost } from "@/lib/util";
 import { realLive, realRange, realWebsite } from "./real";
@@ -58,7 +59,7 @@ export async function getDashboard(user: CurrentUser, keys: RangeKey[] = RANGE_K
     getLive(venue, now),
   ]);
   return {
-    venue: { name: venue.name, slug: venue.slug, website: venue.website, timezone: venue.timezone },
+    venue: { name: venue.name, slug: venue.slug, website: venue.website, timezone: venue.timezone, bookingProvider: (isProvider(venue.bookingProvider) ? venue.bookingProvider : "native"), bookingUrl: venue.bookingUrl },
     user: { name: user.name, isDemo: user.isDemo },
     sample: venue.sampleData,
     nextBrief: nextBriefLabel(now, venue.timezone),

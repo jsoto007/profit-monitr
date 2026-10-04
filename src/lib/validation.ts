@@ -1,5 +1,6 @@
 /** Sign-up validation shared by the form (per step) and the API (all steps). Dependency-free. */
 
+import type { Provider } from "./destinations";
 import { EMAIL_RE, PROMOS, SELLS, VENUE_TYPES } from "./util";
 
 export type SignupFields = {
@@ -12,12 +13,16 @@ export type SignupFields = {
   website: string;
   sells: string[];
   promos: string[];
+  /** Where guests book today; "native" = Monitr's own booking page, no URL needed. */
+  bookingProvider: Provider;
+  bookingUrl: string;
   agree: boolean;
 };
 
 export const EMPTY_SIGNUP: SignupFields = {
   name: "", email: "", password: "",
   venue: "", vtype: "Bar & lounge", city: "", website: "", sells: ["Table reservations", "Event tickets"], promos: [],
+  bookingProvider: "native", bookingUrl: "",
   agree: false,
 };
 
@@ -31,11 +36,13 @@ export function validateAccount(f: Pick<SignupFields, "name" | "email" | "passwo
   return e;
 }
 
-export function validateVenue(f: Pick<SignupFields, "venue" | "city" | "sells">): Errors {
+export function validateVenue(f: Pick<SignupFields, "venue" | "city" | "sells" | "bookingProvider" | "bookingUrl">): Errors {
   const e: Errors = {};
   if (f.venue.trim().length < 2) e.venue = "What is your venue called?";
   if (f.city.trim().length < 2) e.city = "Which city?";
   if (!f.sells.length) e.sells = "Pick at least one.";
+  // The URL's allow-list check lives on the server (src/lib/destinations.ts); here only presence.
+  if (f.bookingProvider !== "native" && !f.bookingUrl.trim()) e.bookingUrl = "Paste the page where guests book.";
   return e;
 }
 

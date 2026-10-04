@@ -13,7 +13,7 @@ const cormorant = Cormorant_Garamond({ subsets: ["latin"], weight: "600", variab
 /** The second call to action: the 15-minute call when a scheduling link exists, otherwise the pilot. */
 export function SecondCta({ className }: { className: string }) {
   return CONTACT.callUrl ? (
-    <a href={CONTACT.callUrl} className={className} rel="noopener">{HERO.call}</a>
+    <a href={CONTACT.callUrl} className={className} target="_blank" rel="noopener noreferrer">{HERO.call}</a>
   ) : (
     <Link href="/signup" className={className}>{HERO.pilot}</Link>
   );

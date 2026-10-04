@@ -21,14 +21,13 @@ export function LegalPage({ kicker, title, updated, children }: { kicker: string
           <h1>{title}</h1>
           <p className="lg-updated">Last updated {updated}</p>
           {children}
-          <section>
-            <h2>Questions</h2>
-            {CONTACT.email ? (
+          {/* The contact section appears once CONTACT.email is set (README → "Before launch"); an empty promise is worse than none. */}
+          {CONTACT.email && (
+            <section>
+              <h2>Questions</h2>
               <p>Write to <a href={`mailto:${CONTACT.email}`}>{CONTACT.email}</a>{CONTACT.entity ? ` (${CONTACT.entity})` : ""}.</p>
-            ) : (
-              <p>Use the contact details on the <Link href="/">home page</Link>.</p>
-            )}
-          </section>
+            </section>
+          )}
         </article>
       </div>
     </div>

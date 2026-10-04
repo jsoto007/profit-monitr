@@ -20,7 +20,7 @@ export const HERO = {
   call: "Book a 15-minute call",
   pilot: "Start a free pilot",
   footnotes: ["Works with what you already use", "Free during the pilot", "Cancel anytime"],
-  filmCaption: "Likes don't pay the rent · 21 s",
+  filmCaption: "Likes don't pay the bills · 21 s",
 };
 
 export const PROMISES = [
@@ -85,7 +85,7 @@ export const PRICING = {
 };
 
 export const CLOSE = {
-  title: "Likes don't pay the rent.",
+  title: "Likes don't pay the bills.",
   accent: "Guests do.",
   body: "See which posts, people and campaigns actually fill your room — and do more of what works, starting Monday.",
   cta: "Start a free pilot",

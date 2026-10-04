@@ -248,10 +248,7 @@
   color: var(--text-label);
 }
 
-/* billing */
-.au-card-number {
-  letter-spacing: 0.04em;
-}
+/* pilot terms */
 .au-due {
   display: flex;
   justify-content: space-between;
@@ -373,6 +370,11 @@
   max-width: 440px;
   font-size: 14px;
   color: var(--text-label);
+}
+.au-group-help {
+  font-size: 13px;
+  color: var(--text-label);
+  margin: -4px 0 2px;
 }
 /* step 3: what the free pilot is, in three lines */
 .au-pilot-list {

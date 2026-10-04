@@ -2,6 +2,7 @@ import { DEMO } from "@/data/sample";
 import { createAccount, EmailTakenError } from "./accounts";
 import { FormError, HttpError, str } from "./api";
 import { db } from "./db";
+import { isProvider, normalizeDestination, ownHosts, websiteHost, type Provider } from "./destinations";
 import { DEFAULT_TZ, isValidTimeZone } from "./time";
 import { cleanPromos, cleanSells, cleanVenueType, validateAccount, validateConsent, validateVenue, type Errors } from "./validation";
 
@@ -9,6 +10,7 @@ export type SignupBody = {
   name?: string; email?: string; password?: string;
   venue?: string; vtype?: string; city?: string; website?: string;
   sells?: string[]; promos?: string[];
+  bookingProvider?: string; bookingUrl?: string;
   timezone?: string;
   agree?: boolean;
 };
@@ -36,11 +38,24 @@ export async function signup(b: SignupBody) {
     city: str(b.city, 120),
     website: str(b.website, 200),
     sells: cleanSells(b.sells),
+    bookingProvider: (isProvider(b.bookingProvider) ? b.bookingProvider : "native") as Provider,
+    bookingUrl: str(b.bookingUrl, 600),
     agree: b.agree === true,
   };
   const e: Errors = { ...validateAccount(f), ...validateVenue(f), ...validateConsent(f) };
   // The demo login's address is reserved, and the unique index below is what finally decides.
   if (!e.email && (f.email === DEMO.email || (await db.user.findUnique({ where: { email: f.email }, select: { id: true } })))) e.email = EMAIL_TAKEN;
+
+  // Where guests book: the pasted page decides the provider; it must be a known platform or the venue's own site.
+  let bookingUrl = "";
+  let bookingProvider: Provider = "native";
+  // "My own website" with the website field left empty: the pasted page is the website.
+  if (f.bookingProvider === "website" && !f.website) f.website = websiteHost(f.bookingUrl);
+  if (!e.bookingUrl && f.bookingProvider !== "native") {
+    const n = normalizeDestination(f.bookingUrl, f.website, ownHosts());
+    if ("error" in n) e.bookingUrl = n.error;
+    else ({ url: bookingUrl, provider: bookingProvider } = n);
+  }
   if (Object.keys(e).length) throw new FormError(e as Record<string, string>);
 
   try {
@@ -56,6 +71,8 @@ export async function signup(b: SignupBody) {
       sellsReservations: f.sells.includes("Table reservations"),
       sellsTickets: f.sells.includes("Event tickets"),
       promos: cleanPromos(b.promos),
+      bookingProvider,
+      bookingUrl,
       subscriptionStatus: "pilot",
     });
   } catch (err) {

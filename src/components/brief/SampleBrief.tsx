@@ -108,7 +108,7 @@ export function SampleBrief() {
           <section className="br-cta">
             <h2 className="br-h2">Want one of these for your venue?</h2>
             <div className="br-cta-row">
-              {CONTACT.callUrl && <a href={CONTACT.callUrl} className="btn" rel="noopener">Book a 15-minute call</a>}
+              {CONTACT.callUrl && <a href={CONTACT.callUrl} className="btn" target="_blank" rel="noopener noreferrer">Book a 15-minute call</a>}
               <Link href="/signup" className={CONTACT.callUrl ? "btn btn-secondary" : "btn"}>Start a free pilot</Link>
               <form action="/api/auth/demo" method="post">
                 <button type="submit" className="btn btn-secondary">Explore the demo venue</button>

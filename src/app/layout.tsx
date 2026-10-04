@@ -7,11 +7,13 @@ import "./globals.css";
 
 /**
  * Cookieless page analytics (Plausible, Umami or similar): the script URL and
- * the site it reports for come from the environment, so nothing loads unless
- * the operator has chosen a provider. No cookies, no consent banner.
+ * the site id it reports for come from the environment, so nothing loads unless
+ * the operator has set both. No cookies, no consent banner. Plausible reads
+ * `data-domain` (a hostname); Umami reads `data-website-id` (its UUID) — the
+ * same value is offered on both attributes and each script ignores the other's.
  */
 const ANALYTICS_SRC = process.env.NEXT_PUBLIC_ANALYTICS_SRC;
-const ANALYTICS_DOMAIN = process.env.NEXT_PUBLIC_ANALYTICS_DOMAIN;
+const ANALYTICS_SITE = process.env.NEXT_PUBLIC_ANALYTICS_SITE;
 
 const figtree = Figtree({ subsets: ["latin"], display: "swap" });
 // Only the Figtree face itself goes into the stack (see --font-sans in tokens.css). next/font
@@ -35,7 +37,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     <html lang="en" style={{ "--font-figtree": figtreeFamily } as CSSProperties} data-scroll-behavior="smooth">
       <body>
         {children}
-        {ANALYTICS_SRC && <Script src={ANALYTICS_SRC} data-domain={ANALYTICS_DOMAIN} data-website-id={ANALYTICS_DOMAIN} strategy="afterInteractive" />}
+        {ANALYTICS_SRC && ANALYTICS_SITE && <Script src={ANALYTICS_SRC} data-domain={ANALYTICS_SITE} data-website-id={ANALYTICS_SITE} strategy="afterInteractive" />}
       </body>
     </html>
   );

@@ -51,7 +51,7 @@ export async function approveAgentNote(user: CurrentUser, id: string): Promise<D
   return { ok: true, changed: count === 1 };
 }
 
-/** "Book a 30-minute session": one open request per venue per fortnight; the team follows up by email. */
+/** "Book a 30-minute call": one open request per venue per fortnight; the founder follows up by email. */
 export async function requestExpert(user: CurrentUser, now = new Date()): Promise<Decision> {
   if (readOnly(user)) return { ok: true, changed: false };
   const since = new Date(now.getTime() - 14 * 86_400_000);
@@ -64,8 +64,8 @@ export async function requestExpert(user: CurrentUser, now = new Date()): Promis
   });
   if (changed) {
     const ops = process.env.OPS_EMAIL;
-    if (ops) await sendEmail({ to: ops, subject: `Strategist session requested — ${user.venue.name}`, text: `${user.name} <${user.email}> asked for a 30-minute session for ${user.venue.name} (${user.venue.city}).` });
-    await sendEmail({ to: user.email, subject: "Your strategist session request", text: `Hi ${user.name.split(" ")[0]},\n\nWe got your request for a 30-minute session for ${user.venue.name}. A strategist will email you to pick a time.\n\n— Profit Monitr` });
+    if (ops) await sendEmail({ to: ops, subject: `Call requested — ${user.venue.name}`, text: `${user.name} <${user.email}> asked for a 30-minute call about ${user.venue.name} (${user.venue.city}).` });
+    await sendEmail({ to: user.email, subject: "Your call request", text: `Hi ${user.name.split(" ")[0]},\n\nWe got your request for a 30-minute call about ${user.venue.name}. We'll email you to pick a time.\n\n— Profit Monitr` });
   }
   return { ok: true, changed };
 }
@@ -74,5 +74,20 @@ export async function requestExpert(user: CurrentUser, now = new Date()): Promis
 export async function setSampleData(user: CurrentUser, on: boolean): Promise<Decision> {
   if (readOnly(user)) return { ok: true, changed: false };
   const { count } = await db.venue.updateMany({ where: { id: user.venue.id, sampleData: !on }, data: { sampleData: on } });
+  return { ok: true, changed: count === 1 };
+}
+
+/** Where the venue's links send people by default. The URL was validated by the caller (src/lib/destinations.ts). */
+export async function setBookingPage(user: CurrentUser, bookingProvider: string, bookingUrl: string): Promise<Decision> {
+  if (readOnly(user)) return { ok: true, changed: false };
+  const { count } = await db.venue.updateMany({ where: { id: user.venue.id, NOT: { bookingProvider, bookingUrl } }, data: { bookingProvider, bookingUrl } });
+  return { ok: true, changed: count === 1 };
+}
+
+/** One link's own destination (the platform's tracking link for that promoter or campaign); empty clears it. Validated by the caller. */
+export async function setChannelDestination(user: CurrentUser, id: string, destination: string): Promise<Decision> {
+  if (readOnly(user)) return { ok: true, changed: false };
+  const { count } = await db.channel.updateMany({ where: { id, venueId: user.venue.id, NOT: { destination } }, data: { destination } });
+  if (!count && !(await db.channel.findFirst({ where: { id, venueId: user.venue.id }, select: { id: true } }))) throw new HttpError(404, "Channel not found.");
   return { ok: true, changed: count === 1 };
 }

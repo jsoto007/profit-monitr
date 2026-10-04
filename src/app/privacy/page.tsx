@@ -25,13 +25,13 @@ export default function PrivacyPage() {
           <li><b>Clicks on your tracked links:</b> the time, the browser&apos;s user-agent string and the page the click came from. The visitor&apos;s IP address is used only in memory to count one tap per half hour; it is not stored.</li>
           <li><b>Bookings made on your booking page</b> (if you use ours): the guest&apos;s name, the email they chose to give, party size, date, the promo code and the confirmation code. Door check-ins and the bill you enter at the door.</li>
           <li><b>Orders you upload</b> from your ticketing platform: the order id, timestamp, amount, promo code or tracking link, and the guest name and email as they appear in your export.</li>
-          <li><b>Decisions you make in the app:</b> actions you approve, website recommendations you approve, and requests for a strategy session.</li>
+          <li><b>Decisions you make in the app:</b> actions and website recommendations you approve, the agent note you send, the weekly ad spend you enter per link, and requests for a call.</li>
         </ul>
       </section>
 
       <section>
         <h2>Cookies and analytics</h2>
-        <p>Signed-in owners get one session cookie, used only to keep you logged in. Guests who click a tracked link or book a table get no cookie at all. If page analytics are enabled on this site they are cookieless and report page views without personal identifiers.</p>
+        <p>Signed-in owners get one session cookie, used only to keep you logged in; a visitor who opens the demo venue gets the same cookie for a day. Guests who click a tracked link or book a table get no cookie at all. If page analytics are enabled on this site they are cookieless and report page views without personal identifiers.</p>
       </section>
 
       <section>

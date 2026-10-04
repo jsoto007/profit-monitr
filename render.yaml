@@ -50,7 +50,7 @@ services:
       # Optional integrations — add in the Render dashboard when ready (never commit values):
       #   RESEND_API_KEY, EMAIL_FROM                                              transactional email
       #   OPS_EMAIL                                                               where strategist-session requests go
-      #   NEXT_PUBLIC_ANALYTICS_SRC, NEXT_PUBLIC_ANALYTICS_DOMAIN                 cookieless page analytics (build-time: redeploy after setting)
+      #   NEXT_PUBLIC_ANALYTICS_SRC, NEXT_PUBLIC_ANALYTICS_SITE                   cookieless page analytics (build-time: redeploy after setting)
 
   # Hourly on Mondays (UTC): each venue's weekly brief is built and emailed when it
   # is Monday morning in the venue's own time zone.

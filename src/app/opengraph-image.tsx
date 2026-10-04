@@ -36,8 +36,8 @@ export default function OpengraphImage() {
             </div>
           </div>
           <div style={{ display: "flex", justifyContent: "space-between", fontSize: 28, color: "#555555" }}>
-            <span>For restaurants, bars &amp; venues</span>
-            <span style={{ color: INK, fontWeight: 800 }}>$39.99 a month</span>
+            <span>Works on top of Posh, Eventbrite, Resy &amp; OpenTable</span>
+            <span style={{ color: INK, fontWeight: 800 }}>Free pilot · then $39.99 a month</span>
           </div>
         </div>
       </div>

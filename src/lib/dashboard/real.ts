@@ -1,5 +1,6 @@
 import type { Venue } from "@/generated/prisma/client";
 import { db } from "@/lib/db";
+import { PROVIDERS, providerOf, type Fidelity } from "@/lib/destinations";
 import { rangeLabel, rangeWindow, serviceDay, shortDate, weekStart, zonedParts, type RangeKey } from "@/lib/time";
 import { deltaLabel, fmt, linkHost, money } from "@/lib/util";
 import { channelVerdict } from "./sample";
@@ -89,35 +90,50 @@ export async function realRange(venue: Venue, key: RangeKey, now: Date): Promise
   }
   const best = bars.reduce((a, b) => (b.value > a.value ? b : a), bars[0]);
 
-  // Channels
+  // Channels. A link that sends people to the venue's Posh / Eventbrite / Resy page
+  // can prove its clicks here and nothing after them (until that platform's orders
+  // are imported), so such a source never earns a conversion-based verdict, never
+  // ranks as "worst", and shows "—" where a rate or return would be invented.
   const rows: (ChannelRow & { spend: number; short: string })[] = channels.map((c) => {
     const mine = bookings.filter((b) => b.channelId === c.id);
     const t = totals(mine, w.from, w.to);
     const clickCount = clicks.filter((k) => k.channelId === c.id).length;
     const spend = spendOf(c);
+    const external = c.destination || venue.bookingUrl;
+    const fidelity: Fidelity = external ? "clicks" : "exact";
+    const measured = fidelity !== "clicks";
     return {
       id: c.id, name: c.name, short: c.short || c.name, detail: c.detail, code: c.code,
       clicks: clickCount, booked: t.res + t.tix, door: t.door, revCents: t.revCents,
-      roi: spend ? `${(t.revCents / spend).toFixed(1)}×` : t.revCents ? "free" : "—",
-      weak: spend > 0 && t.revCents / spend < 1.5,
-      rate: clickCount ? t.door / clickCount : 0,
-      verdict: channelVerdict(clickCount, t.door),
+      roi: !measured ? "—" : spend ? `${(t.revCents / spend).toFixed(1)}×` : t.revCents ? "free" : "—",
+      weak: measured && spend > 0 && t.revCents / spend < 1.5,
+      rate: measured && clickCount ? t.door / clickCount : 0,
+      verdict: !measured ? (clickCount ? "Getting clicks" : "New") : channelVerdict(clickCount, t.door),
+      fidelity,
+      provider: providerOf(external, venue.website),
+      destination: c.destination,
       spend,
     };
   });
   const active = rows.filter((r) => r.clicks || r.booked || r.door || r.revCents);
+  const measurable = active.filter((r) => r.fidelity !== "clicks");
   const top = (f: (r: (typeof rows)[number]) => number) => [...active].sort((a, b) => f(b) - f(a))[0];
   const byRev = top((r) => r.revCents);
   const perDollar = [...active].filter((r) => r.spend && r.revCents).sort((a, b) => b.revCents / b.spend - a.revCents / a.spend)[0];
   const byDoor = top((r) => r.door);
-  const byRate = [...active].filter((r) => r.clicks >= 10).sort((a, b) => b.rate - a.rate)[0];
-  const worst = [...active].filter((r) => r.clicks >= 50).sort((a, b) => a.rate - b.rate)[0];
+  const byRate = [...measurable].filter((r) => r.clicks >= 10).sort((a, b) => b.rate - a.rate)[0];
+  const worst = [...measurable].filter((r) => r.clicks >= 50).sort((a, b) => a.rate - b.rate)[0];
+  const topClicks = [...active].filter((r) => r.fidelity === "clicks").sort((a, b) => b.clicks - a.clicks)[0];
   const link = `${linkHost()}/${venue.slug}/ig`;
 
   const why: string[] = [];
   if (byDoor?.door) why.push(`**${byDoor.name}** brought ${fmt(byDoor.door)} guests through the door — more than any other source.`);
   if (byRate && byRate.rate > 0) why.push(`**${byRate.name}** turned ${(byRate.rate * 100).toFixed(1)}% of clicks into guests.`);
   if (worst && worst !== byRate && worst.rate < 0.035) why.push(`**${worst.name}** reached too wide an audience: ${fmt(worst.clicks)} clicks, ${fmt(worst.door)} guests.`);
+  if (topClicks?.clicks) {
+    const p = PROVIDERS[topClicks.provider];
+    why.push(`**${topClicks.name}** sent ${fmt(topClicks.clicks)} people to your ${p.label} page${p.orders ? " — upload its orders and the bookings get credited here" : " — what happened after the click is on their side"}.`);
+  }
   if (!why.length) why.push(`Nothing tracked in this period yet. Share **${link}** — every click, booking and guest at the door shows up here.`);
 
   const delta = deltaLabel(cur.revCents, prev.revCents);
@@ -189,7 +205,7 @@ export async function realRange(venue: Venue, key: RangeKey, now: Date): Promise
         ? `${byRev.short} brought the most money.${perDollar ? ` ${perDollar.short} brought the most per dollar.` : ""}`
         : "No marketing revenue traced yet.",
     },
-    channels: rows.map((r) => ({ id: r.id, name: r.name, detail: r.detail, code: r.code, clicks: r.clicks, booked: r.booked, door: r.door, revCents: r.revCents, roi: r.roi, weak: r.weak, rate: r.rate, verdict: r.verdict })),
+    channels: rows.map((r) => ({ id: r.id, name: r.name, detail: r.detail, code: r.code, clicks: r.clicks, booked: r.booked, door: r.door, revCents: r.revCents, roi: r.roi, weak: r.weak, rate: r.rate, verdict: r.verdict, fidelity: r.fidelity, provider: r.provider, destination: r.destination })),
     sortNotes,
     content,
     reservations: {

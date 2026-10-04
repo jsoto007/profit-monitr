@@ -5,7 +5,7 @@ import { getCurrentUser } from "@/lib/auth";
 
 export const metadata: Metadata = {
   title: { absolute: "Create your account — Profit Monitr" },
-  description: "Three quick steps. We set up your reservations and ticketing as soon as you're in. $39.99 a month, everything included.",
+  description: "Three quick steps and your tracked links are ready — pointing at the booking page you already use. Free during the pilot; $39.99 a month after.",
   alternates: { canonical: "/signup" },
 };
 
