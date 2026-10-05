@@ -110,7 +110,10 @@ export async function realRange(venue: Venue, key: RangeKey, now: Date): Promise
     const converted = fidelity === "platform" ? t.orders : t.door;
     return {
       id: c.id, name: c.name, short: c.short || c.name, detail: c.detail, code: c.code,
-      clicks: clickCount, booked: t.res + t.tix, door: t.door, revCents: t.revCents,
+      // "booked" is bookings made: reservations plus tickets on Monitr's page; for a platform
+      // source it is orders as the export reports them (one three-ticket purchase is one order),
+      // the same count the conversion rate and the brief use.
+      clicks: clickCount, booked: fidelity === "platform" ? t.orders : t.res + t.tix, door: t.door, revCents: t.revCents,
       roi: !measured ? "—" : spend ? `${(t.revCents / spend).toFixed(1)}×` : t.revCents ? "free" : "—",
       weak: measured && spend > 0 && t.revCents / spend < 1.5,
       rate: measured && clickCount ? converted / clickCount : 0,

@@ -481,8 +481,10 @@ describe("imported platform orders", () => {
     const m = d.metrics;
     expect([m.revCents, m.platformCents, m.doorCents, m.unattributedCents, m.tix]).toEqual([10_000, 10_000, 0, 2_500, 4]);
     expect([m.showRate, m.noShowRate]).toEqual(["—", "—"]); // attendance is the platform's word, not a door measurement
-    expect(d.channels.find((c) => c.code === "INSTA")).toMatchObject({ booked: 2, revCents: 6_000, fidelity: "platform", provider: "eventbrite", roi: "free" });
+    // A platform source's "booked" is orders, not tickets: the two-ticket order 1001 is one order (1004 was refunded).
+    expect(d.channels.find((c) => c.code === "INSTA")).toMatchObject({ booked: 1, revCents: 6_000, fidelity: "platform", provider: "eventbrite", roi: "free" });
     expect(d.channels.find((c) => c.code === "EMAIL")).toMatchObject({ booked: 1, revCents: 4_000, fidelity: "platform" });
+    expect(await db.event.findFirst({ where: { venueId: user.venue.id, externalId: { not: null } }, select: { externalId: true } })).toMatchObject({ externalId: expect.stringMatching(/^eventbrite:/) }); // namespaced per platform
     expect(d.reservations.upcoming[0]).toMatchObject({ when: expect.stringContaining("Jazz Night"), headline: "4 sold", note: "capacity not set" });
     expect((await getLive(user.venue)).feed).toEqual([]); // uploads are history, not tonight's feed
 

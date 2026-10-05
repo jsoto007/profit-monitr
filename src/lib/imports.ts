@@ -382,6 +382,7 @@ export async function importOrders(user: CurrentUser, provider: ImportProvider, 
 
       // Events first, so each order can hang off its night. A night the venue already created on
       // Monitr's page (same name, same local day) is reused rather than duplicated in "Coming up".
+      // The stored event id is namespaced by provider: two platforms may both number an event "123".
       const eventIds = new Map<string, string>();
       for (const key of new Set(planned.map((p) => p.row.eventExternalId).filter(Boolean))) {
         const mine = planned.filter((p) => p.row.eventExternalId === key);
@@ -397,9 +398,10 @@ export async function importOrders(user: CurrentUser, provider: ImportProvider, 
           eventIds.set(key, native.id);
           continue;
         }
+        const externalId = `${provider}:${key}`.slice(0, 160);
         const ev = await tx.event.upsert({
-          where: { venueId_externalId: { venueId: venue.id, externalId: key } },
-          create: { venueId: venue.id, externalId: key, name: sample.eventName || `${IMPORT_PROVIDERS[provider].label} event`, kind, capacity: 0, startsAt },
+          where: { venueId_externalId: { venueId: venue.id, externalId } },
+          create: { venueId: venue.id, externalId, name: sample.eventName || `${IMPORT_PROVIDERS[provider].label} event`, kind, capacity: 0, startsAt },
           update: { name: sample.eventName || undefined, startsAt: sample.eventStartsAt ?? undefined },
           select: { id: true },
         });
