@@ -52,17 +52,6 @@ export function passwordScore(p: string): number {
   return Math.max(1, s);
 }
 
-/** "4242424242424242" → "4242 4242 4242 4242" (digits only, 16 max). */
-export function formatCard(v: string): string {
-  return v.replace(/\D/g, "").slice(0, 16).replace(/(\d{4})(?=\d)/g, "$1 ");
-}
-
-/** "1228" → "12/28". */
-export function formatExpiry(v: string): string {
-  const d = v.replace(/\D/g, "").slice(0, 4);
-  return d.length > 2 ? d.slice(0, 2) + "/" + d.slice(2) : d;
-}
-
 export function cleanCode(v: string): string {
   return (v || "").toUpperCase().replace(/[^A-Z0-9-]/g, "").slice(0, 12);
 }

@@ -2,6 +2,8 @@ import { DEMO } from "@/data/sample";
 import type { Venue } from "@/generated/prisma/client";
 import type { CurrentUser } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { isProvider } from "@/lib/destinations";
+import { recentImports } from "@/lib/imports";
 import { calendarDate, nextBriefLabel, RANGE_KEYS, weekStart, type RangeKey } from "@/lib/time";
 import { linkHost } from "@/lib/util";
 import { realLive, realRange, realWebsite } from "./real";
@@ -51,14 +53,16 @@ export async function getLive(venue: Venue, now = new Date()): Promise<LiveData>
 /** Everything the dashboard needs for first paint. `ranges` carries the requested ranges only. */
 export async function getDashboard(user: CurrentUser, keys: RangeKey[] = RANGE_KEYS, now = new Date()): Promise<DashboardPayload> {
   const venue = user.venue;
-  const [ranges, actions, website, live] = await Promise.all([
+  const [ranges, actions, website, live, imports] = await Promise.all([
     Promise.all(keys.map(async (k) => [k, await getRange(venue, k, now)] as const)),
     getActions(venue, now),
     getWebsite(venue, user.isDemo),
     getLive(venue, now),
+    user.isDemo ? Promise.resolve([]) : recentImports(venue.id),
   ]);
   return {
-    venue: { name: venue.name, slug: venue.slug, website: venue.website, timezone: venue.timezone },
+    imports,
+    venue: { name: venue.name, slug: venue.slug, website: venue.website, timezone: venue.timezone, bookingProvider: (isProvider(venue.bookingProvider) ? venue.bookingProvider : "native"), bookingUrl: venue.bookingUrl, websiteVerified: venue.websiteVerified },
     user: { name: user.name, isDemo: user.isDemo },
     sample: venue.sampleData,
     nextBrief: nextBriefLabel(now, venue.timezone),

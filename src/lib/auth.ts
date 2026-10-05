@@ -8,12 +8,12 @@ export const SESSION_COOKIE = "pm_session";
 const SESSION_DAYS = 30;
 
 /**
- * Subscription states that may use the app. Today every venue is "demo" (the
- * no-charge prototype billing). The others are here for real billing:
- * "past_due" keeps access while the card is retried; anything else — pending,
- * canceled, unpaid, incomplete — is locked out.
+ * Subscription states that may use the app. Today every venue is "pilot" (free,
+ * nothing charged) or "demo" (the shared public login). The others are here for
+ * real billing: "past_due" keeps access while the card is retried; anything
+ * else — pending, canceled, unpaid, incomplete — is locked out.
  */
-const ACCESS = new Set(["active", "trialing", "past_due", "demo"]);
+const ACCESS = new Set(["active", "trialing", "past_due", "pilot", "demo"]);
 export const hasAccess = (status: string) => ACCESS.has(status);
 
 export type CurrentUser = NonNullable<Awaited<ReturnType<typeof loadUserByToken>>>;

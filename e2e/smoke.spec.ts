@@ -27,18 +27,29 @@ test("landing: message, sections, routing and SEO files", async ({ page, request
   await page.goto("/");
   await expect(page).toHaveTitle("Profit Monitr — Track what drives sales and reservations");
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Don't just track likes. Track what drives sales and reservations.");
-  for (const id of ["how", "brief", "agents", "pricing"]) await expect(page.locator(`#${id}`)).toBeVisible();
+  for (const id of ["how", "brief", "pricing"]) await expect(page.locator(`#${id}`)).toBeVisible();
+  await expect(page.locator("#agents")).toHaveCount(0); // the AI-agents claims are off the pre-launch site
   await expect(page.getByRole("img", { name: /Likes don't measure sales/ })).toBeVisible();
   await expect(page.locator(".ld-price")).toHaveText("$39.99");
-  await page.getByRole("link", { name: "Start for $39.99 a month" }).first().click();
+  await expect(page.locator(".ld-dark-label")).toHaveText("Fictional sample venue · illustrative numbers");
+  await page.getByRole("link", { name: "See a sample brief" }).first().click();
+  await expect(page).toHaveURL(/\/brief\/sample$/);
+  await expect(page.getByRole("heading", { level: 1 })).toContainText("$48,920");
+  await expect(page.getByText("Fictional sample venue · illustrative numbers")).toBeVisible();
+  await page.goto("/");
+  await page.getByRole("link", { name: "Start a free pilot" }).first().click();
   await expect(page).toHaveURL(/\/signup$/);
   expect(errors).toEqual([]);
 
+  await page.goto("/pilot-terms");
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("A free pilot, in plain words.");
+  await page.goto("/privacy");
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("What we collect, and why.");
   expect((await request.get("/robots.txt")).status()).toBe(200);
-  expect(await (await request.get("/sitemap.xml")).text()).toContain("/signup");
+  expect(await (await request.get("/sitemap.xml")).text()).toContain("/brief/sample");
   expect(await (await request.get("/llms.txt")).text()).toContain("# Profit Monitr");
   expect((await request.get("/opengraph-image")).headers()["content-type"]).toContain("image/png");
-  expect(await (await request.get("/api/health")).json()).toEqual({ ok: true });
+  expect(await (await request.get("/api/health")).json()).toMatchObject({ ok: true });
 
   // The short-link domain serves tracked links directly once it points at the app.
   const short = await request.get("/the-copper-room/ig", { headers: { host: "monitr.link" }, maxRedirects: 0 });
@@ -58,7 +69,7 @@ test("signed-out visitors cannot reach the app or its API", async ({ page, reque
   expect((await request.post("/api/cron/weekly-brief")).status()).toBeGreaterThanOrEqual(401);
 });
 
-test("sign-up: three steps with validation, then the dashboard on sample data", async ({ page }) => {
+test("sign-up: three steps with validation and no card, then the dashboard on sample data", async ({ page }) => {
   await page.goto("/signup");
   await page.getByRole("button", { name: "Continue →" }).click();
   await expect(page.getByText("Please enter your name.")).toBeVisible();
@@ -76,29 +87,30 @@ test("sign-up: three steps with validation, then the dashboard on sample data", 
   await page.getByLabel("City").fill("Brooklyn, NY");
   await page.getByRole("radio", { name: "Bar & lounge" }).click();
   await page.getByRole("button", { name: "Email", exact: true }).click();
+  // Where guests book: picking a platform asks for its page; this venue keeps Monitr's own page.
+  await page.getByRole("radio", { name: "Posh", exact: true }).click();
+  await expect(page.getByLabel("Your booking page")).toBeVisible();
+  await page.getByRole("button", { name: "Continue →" }).click();
+  await expect(page.getByText("Paste the page where guests book.")).toBeVisible();
+  await page.getByRole("radio", { name: "Not yet — use Monitr's page" }).click();
   await page.getByRole("button", { name: "Continue →" }).click();
 
-  await expect(page.getByRole("heading", { name: "Billing" })).toBeVisible();
-  await expect(page.getByText("Prototype — no payment is processed.")).toBeVisible();
-  await page.getByRole("button", { name: "Start my subscription →" }).click();
-  await expect(page.getByText("Enter a 16-digit card number.")).toBeVisible();
-  await page.getByLabel("Name on card").fill(owner.name);
-  await page.getByLabel("Card number").fill("4242424242424242");
-  await expect(page.getByLabel("Card number")).toHaveValue("4242 4242 4242 4242");
-  await page.getByLabel("Expiry").fill("1230");
-  await page.getByLabel("CVC").fill("123");
-  await page.getByLabel("ZIP").fill("11201");
+  await expect(page.getByRole("heading", { name: "Your free pilot" })).toBeVisible();
+  await expect(page.getByText("No card today.")).toBeVisible();
+  await expect(page.getByLabel(/card/i)).toHaveCount(0); // the prototype card form is gone
+  await page.getByRole("button", { name: "Start my pilot →" }).click();
+  await expect(page.getByText("Please agree to continue.")).toBeVisible();
   await page.getByRole("checkbox").check();
 
-  // The card number, expiry and CVC must never leave the browser.
+  // Nothing resembling billing data is sent — only the consent.
   const sent = page.waitForRequest((r) => r.url().endsWith("/api/auth/signup"));
-  await page.getByRole("button", { name: "Start my subscription →" }).click();
-  const payload = (await sent).postData() ?? "";
-  expect(payload).not.toContain("4242424242424242");
-  expect(payload).not.toContain("4242 4242");
-  expect(JSON.parse(payload).card).toEqual({ name: owner.name, last4: "4242", zip: "11201" });
+  await page.getByRole("button", { name: "Start my pilot →" }).click();
+  const payload = JSON.parse((await sent).postData() ?? "{}");
+  expect(payload.card).toBeUndefined();
+  expect(payload.agree).toBe(true);
 
   await expect(page.getByRole("heading", { name: "You're in, Dana." })).toBeVisible();
+  await expect(page.getByText("Your tracked links and promo codes are ready")).toBeVisible();
   await expect(page.getByText(`First tracked link: monitr.link/${slug}/ig`)).toBeVisible();
   await page.getByRole("link", { name: "Go to your dashboard →" }).click();
 
@@ -186,12 +198,50 @@ test("attribution loop: tracked link → booking → door check-in → revenue o
   await page.getByRole("navigation", { name: "Sections" }).first().getByRole("button", { name: "Revenue" }).click();
   await expect(page.locator(".rev-row").first()).toContainText("Instagram");
   await expect(page.locator(".rev-row").first()).toContainText("$212");
+
+  // Overlay: a link can point at the venue's own platform instead. The owner's session carries the API calls.
+  const channels = (await (await page.request.get("/api/channels?range=week")).json()).channels as { id: string; code: string }[];
+  const email = channels.find((c) => c.code === "EMAIL")!;
+  const bad = await page.request.patch(`/api/channels/${email.id}`, { data: { destination: "https://evil.example/phish" } });
+  expect(bad.status()).toBeGreaterThanOrEqual(400);
+  expect((await bad.json()).fields.destination).toContain("Links can point at");
+  expect((await page.request.patch(`/api/channels/${email.id}`, { data: { destination: "www.eventbrite.com/e/jazz-night-123" } })).status()).toBe(200);
+  const tracked = await page.request.get(`/r/${slug}/email`, { maxRedirects: 0 });
+  expect([tracked.status(), tracked.headers().location]).toEqual([302, "https://www.eventbrite.com/e/jazz-night-123?aff=email"]);
+  await page.goto("/app?tab=channels");
+  await expect(page.locator(".ch-row.is-clicks")).toHaveCount(1);
+  await expect(page.locator(".ch-row.is-clicks")).toContainText("clicks only — bookings happen on Eventbrite");
+  expect((await page.request.patch(`/api/channels/${email.id}`, { data: { destination: "" } })).status()).toBe(200);
+  const back = await page.request.get(`/r/${slug}/email`, { maxRedirects: 0 });
+  expect(back.headers().location).toBe(`http://localhost:3211/book/${slug}?via=email`);
+
+  // Imports: a Posh export credits its orders to the codes that earned them, after a preview.
+  const today = new Date().toLocaleDateString("en-CA");
+  const csv = ["Order ID,Date,Name,Email,Tickets,Total,Promo Code,Tracking Link,Status", `9001,${today} 12:00,Ana Guest,ana@example.test,2,80.00,INSTA,,Paid`, `9002,${today} 12:05,Bo Guest,bo@example.test,1,30.00,,,Paid`].join("\n");
+  await page.goto("/app?tab=reservations");
+  await page.getByRole("radio", { name: "Posh" }).click();
+  await page.getByLabel("Posh export (CSV)").setInputFiles({ name: "posh.csv", mimeType: "text/csv", buffer: Buffer.from(csv) });
+  await expect(page.getByText("2 orders read")).toBeVisible();
+  await expect(page.getByText("Instagram: 1 order · $80")).toBeVisible();
+  await page.getByRole("button", { name: "Import 2 orders" }).click();
+  await expect(page.getByRole("status").filter({ hasText: "Imported 2 new" })).toBeVisible();
+  await page.goto("/app?tab=revenue");
+  await expect(page.locator(".rev-split")).toContainText("$80 was ticket sales your platform took at purchase and $212 was taken at the door");
+  await expect(page.locator(".rev-split")).toContainText("Another $30 of platform orders carried no code or link");
+  const exported = await page.request.get("/api/export");
+  expect(exported.headers()["content-type"]).toContain("text/csv");
+  const text = await exported.text();
+  expect(text.split("\r\n")[0]).toContain("Platform order id");
+  expect(text).toContain("9001");
+  expect(text).toContain("$80.00");
 });
 
-test("demo venue: read-only on the server, and usable on a phone", async ({ page }) => {
+test("demo venue: one button in, read-only on the server, and usable on a phone", async ({ page }) => {
   await page.goto("/login");
   await expect(page.getByRole("heading", { name: "Your Monday brief is waiting." })).toBeVisible();
-  await login(page, "demo@copperroom.com", "monitr123");
+  await expect(page.getByText("monitr123")).toHaveCount(0); // credentials are no longer printed
+  await page.getByRole("button", { name: "Explore the demo venue" }).click();
+  await expect(page).toHaveURL(/\/app$/);
   await expect(page.locator(".db-who")).toContainText("The Copper Room");
   await expect(page.getByText("You're looking at a sample venue.")).toHaveCount(0);
 

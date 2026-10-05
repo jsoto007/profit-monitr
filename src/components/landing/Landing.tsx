@@ -2,15 +2,25 @@ import Link from "next/link";
 import { Cormorant_Garamond } from "next/font/google";
 import { CheckIcon } from "@/components/ui/icons";
 import { Logo } from "@/components/ui/Logo";
-import { AGENTS, BRIEF, CLOSE, HERO, HOW, NAV, PRICING, PROMISES } from "@/data/landing";
-import { SITE } from "@/data/site";
+import { BRIEF, CLOSE, HERO, HOW, NAV, PRICING, PROMISES } from "@/data/landing";
+import { CONTACT, SITE } from "@/data/site";
 import { HeroFilm } from "./HeroFilm";
 import "./landing.css";
 
 /** The brand lockup's serif — only the hero film's closing card uses it. */
 const cormorant = Cormorant_Garamond({ subsets: ["latin"], weight: "600", variable: "--font-cormorant", display: "swap" });
 
+/** The second call to action: the 15-minute call when a scheduling link exists, otherwise the pilot. */
+export function SecondCta({ className }: { className: string }) {
+  return CONTACT.callUrl ? (
+    <a href={CONTACT.callUrl} className={className} target="_blank" rel="noopener noreferrer">{HERO.call}</a>
+  ) : (
+    <Link href="/signup" className={className}>{HERO.pilot}</Link>
+  );
+}
+
 export function Landing() {
+  const who = [CONTACT.founder, CONTACT.entity].filter(Boolean).join(" · ");
   return (
     <div className={`frame ${cormorant.variable}`}>
       <div className="ld-canvas">
@@ -21,12 +31,12 @@ export function Landing() {
             </Link>
             <div className="ld-nav-links">
               {NAV.map((l) => (
-                <a key={l.href} href={l.href}>{l.label}</a>
+                l.href.startsWith("#") ? <a key={l.href} href={l.href}>{l.label}</a> : <Link key={l.href} href={l.href}>{l.label}</Link>
               ))}
             </div>
             <div className="ld-nav-cta">
               <Link href="/login" className="ld-pill ld-pill-outline">Log in</Link>
-              <Link href="/signup" className="ld-pill ld-pill-solid">Start · {SITE.price}/mo</Link>
+              <Link href="/signup" className="ld-pill ld-pill-solid">{HERO.pilot}</Link>
             </div>
           </nav>
         </header>
@@ -40,8 +50,8 @@ export function Landing() {
               </h1>
               <p className="ld-hero-body">{HERO.body}</p>
               <div className="ld-cta-row">
-                <Link href="/signup" className="ld-pill ld-pill-solid">{HERO.primary}</Link>
-                <a href="#how" className="ld-pill ld-pill-outline">{HERO.secondary}</a>
+                <Link href="/brief/sample" className="ld-pill ld-pill-solid">{HERO.primary}</Link>
+                <SecondCta className="ld-pill ld-pill-outline" />
               </div>
               <div className="ld-footnotes">
                 {HERO.footnotes.flatMap((f, i) => (i ? [<span key={`d${i}`} aria-hidden="true">·</span>, <span key={f}>{f}</span>] : [<span key={f}>{f}</span>]))}
@@ -103,6 +113,7 @@ export function Landing() {
               </div>
             </div>
             <div className="ld-dark-card">
+              <div className="ld-dark-label">{BRIEF.card.label}</div>
               <div className="ld-dark-meta">
                 <span>{BRIEF.card.meta}</span>
                 <span className="ld-dark-delta">{BRIEF.card.delta}</span>
@@ -122,23 +133,7 @@ export function Landing() {
                   </div>
                 ))}
               </div>
-            </div>
-          </section>
-
-          <section id="agents" className="ld-alt">
-            <div className="ld-wrap">
-              <div className="kicker">{AGENTS.kicker}</div>
-              <h2 className="ld-h2" style={{ maxWidth: "20ch" }}>{AGENTS.title}</h2>
-              <div className="ld-cards">
-                {AGENTS.cards.map((c) => (
-                  <div key={c.name} className="ld-card ld-agent">
-                    <div className="ld-agent-name">{c.name}</div>
-                    <div className="ld-agent-figure">{c.before} <span>{c.after}</span></div>
-                    <p>{c.body}</p>
-                  </div>
-                ))}
-              </div>
-              <div className="ld-footnote">{AGENTS.footnote}</div>
+              <Link href="/brief/sample" className="ld-dark-more">{BRIEF.card.more} →</Link>
             </div>
           </section>
 
@@ -173,13 +168,20 @@ export function Landing() {
             <h2>{CLOSE.title} <span>{CLOSE.accent}</span></h2>
             <div className="ld-close-side">
               <p>{CLOSE.body}</p>
-              <Link href="/signup" className="ld-pill ld-pill-white">{CLOSE.cta}</Link>
+              <div className="ld-cta-row">
+                <Link href="/signup" className="ld-pill ld-pill-white">{CLOSE.cta}</Link>
+                <Link href="/brief/sample" className="ld-pill ld-pill-ghost">{CLOSE.secondary}</Link>
+              </div>
             </div>
           </div>
           <div className="ld-footer">
             <Logo size={22} text={16} reverse gap={8} />
-            <span>© {SITE.year}</span>
+            <span>© {SITE.year}{who ? ` ${who}` : ""}</span>
+            {CONTACT.email && <a href={`mailto:${CONTACT.email}`}>{CONTACT.email}</a>}
             <span className="ld-footer-links">
+              <Link href="/brief/sample">Sample brief</Link>
+              <Link href="/privacy">Privacy</Link>
+              <Link href="/pilot-terms">Pilot terms</Link>
               <Link href="/login">Log in</Link>
               <Link href="/signup">Create account</Link>
             </span>

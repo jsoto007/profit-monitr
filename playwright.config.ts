@@ -21,7 +21,7 @@ export default defineConfig({
     url: `http://localhost:${PORT}/api/health`,
     timeout: 240_000,
     reuseExistingServer: !process.env.CI,
-    // ALLOW_DEMO_BILLING: a production build keeps sign-up closed unless free (no-charge) accounts are explicitly accepted.
-    env: { DATABASE_URL: testDatabaseUrl(), APP_URL: `http://localhost:${PORT}`, NEXT_PUBLIC_LINK_HOST: "monitr.link", ALLOW_DEMO_BILLING: "1" },
+    // ALLOW_SIGNUPS: a production build keeps sign-up closed unless free pilot accounts are explicitly accepted.
+    env: { DATABASE_URL: testDatabaseUrl(), APP_URL: `http://localhost:${PORT}`, NEXT_PUBLIC_LINK_HOST: "monitr.link", ALLOW_SIGNUPS: "1" },
   },
 });
