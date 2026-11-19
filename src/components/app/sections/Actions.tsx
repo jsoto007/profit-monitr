@@ -53,9 +53,9 @@ export function Actions({ data, approved, approve, expert, onExpert, nextBrief }
         </div>
         <div className="pod dark on-dark expert">
           <h2 className="db-h2">Want a second opinion?</h2>
-          <p>Expert guidance is included. A strategist walks through this list with you in 30 minutes and helps you follow through.</p>
+          <p>A call is part of the pilot. We walk through this list with you in 30 minutes and help you follow through.</p>
           <span className="btn-gap" />
-          <button type="button" className="btn btn-sm btn-light" onClick={onExpert} aria-disabled={expert}>{expert ? "Requested · we’ll email you" : "Book a 30-minute session"}</button>
+          <button type="button" className="btn btn-sm btn-light" onClick={onExpert} aria-disabled={expert}>{expert ? "Requested · we’ll email you" : "Book a 30-minute call"}</button>
         </div>
       </section>
     </div>

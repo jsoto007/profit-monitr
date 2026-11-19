@@ -27,6 +27,10 @@ export function sampleRange(key: RangeKey): RangeData {
     weak: c.roi === WEAK_ROI,
     rate: c.door / c.clicks,
     verdict: channelVerdict(c.clicks, c.door),
+    // The sample venue books on its Monitr page: every figure is measured.
+    fidelity: "exact",
+    provider: "native",
+    destination: "",
   }));
 
   return {
@@ -50,6 +54,10 @@ export function sampleRange(key: RangeKey): RangeData {
       summary: R.summary,
       why: WHY,
       revenueHeadline: FIXED.revenueHeadline,
+      // The sample venue books on its own page: everything is taken at the door.
+      platformCents: 0,
+      doorCents: scale(KPI.revCents),
+      unattributedCents: 0,
     },
     channels,
     sortNotes: { ...SORT_NOTES },

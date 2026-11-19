@@ -48,7 +48,7 @@ export function Bars({ bars, label, strong, format }: { bars: Bar[]; label: stri
 const TONE: Record<Verdict | ChannelVerdict, string> = {
   "Scale it": " good", Working: " good",
   "Fix or cut": " bad", "Not working": " bad",
-  "Keep going": "", Steady: "", New: "",
+  "Keep going": "", Steady: "", New: "", "Getting clicks": "",
 };
 
 export function VerdictPill({ verdict }: { verdict: Verdict | ChannelVerdict }) {

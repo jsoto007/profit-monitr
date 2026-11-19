@@ -53,9 +53,18 @@ model Venue {
   sellsTickets      Boolean  @default(false)
   promoChannels     String[] @default([])
 
-  // Billing. Card numbers never reach this server; only the last four digits
-  // are stored. Nothing is charged yet: subscriptionStatus is "demo" and the
-  // two provider ids stay null until real billing is built.
+  // Where guests book today. Tracked links send people there (src/lib/destinations.ts);
+  // "native" means Monitr's own /book/<venue> page and an empty bookingUrl.
+  bookingProvider String @default("native") // native | posh | eventbrite | resy | opentable | partiful | website
+  bookingUrl      String @default("")
+  /// Links to the venue's own website (an owner-typed host) go live only after the
+  /// operator has checked the site; platform links need no check. README → "Verifying a venue's website".
+  websiteVerified Boolean @default(false)
+
+  // Billing. Nothing is charged: accounts are "pilot" (free) or "demo" (the
+  // shared public login). cardLast4 is a leftover of the prototype card form
+  // and is no longer written; the two provider ids stay null until real
+  // billing is built (see claude-reports/Money-Safety/).
   cardLast4            String  @default("")
   stripeCustomerId     String? @unique
   stripeSubscriptionId String? @unique
@@ -75,6 +84,7 @@ model Venue {
   recommendations Recommendation[]
   agentNotes      AgentNote[]
   expertRequests  ExpertRequest[]
+  imports         Import[]
 }
 
 /// A tracked source: one link (monitr.link/<venue>/<slug>) and one promo code.
@@ -90,6 +100,9 @@ model Channel {
   discountPct      Int?
   weeklySpendCents Int     @default(0)
   active           Boolean @default(true)
+  /// Where this link sends people — the platform's own tracking link for this
+  /// promoter or campaign. Empty = the venue's booking page (Venue.bookingUrl or native).
+  destination      String  @default("")
 
   createdAt DateTime @default(now()) @db.Timestamptz(3)
 
@@ -141,13 +154,17 @@ model Event {
   name       String
   startsAt   DateTime @db.Timestamptz(3)
   kind       String // TICKET | RESERVATION
+  /// 0 = unknown (events created from an imported export carry no capacity)
   capacity   Int
   priceCents Int      @default(0)
+  /// The platform's event id for events created by an import; NULL for events made here.
+  externalId String?
 
   createdAt DateTime @default(now()) @db.Timestamptz(3)
 
   bookings Booking[]
 
+  @@unique([venueId, externalId])
   @@index([venueId, startsAt])
 }
 
@@ -170,14 +187,44 @@ model Booking {
   date         DateTime  @db.Timestamptz(3)
   promoCode    String    @default("")
   /// Tickets: price × quantity at booking. Reservations: the bill entered at the door.
+  /// Imported orders: what the platform collected, net of refunds, before its fees.
   amountCents  Int       @default(0)
   checkedInAt  DateTime? @db.Timestamptz(3)
+  /// Native rows: when the guest booked. Imported rows: when the order was placed on the platform.
   createdAt    DateTime  @default(now()) @db.Timestamptz(3)
 
+  // Imported orders (src/lib/imports.ts). A native booking has provider "native"
+  // and no externalId; NULL keeps native rows out of the unique index.
+  provider   String    @default("native") // native | eventbrite | posh | opentable
+  externalId String?
+  importedAt DateTime? @db.Timestamptz(3)
+  /// When the platform took the money. Revenue is recognised here for imported
+  /// paid orders, and at check-in for everything else (src/lib/dashboard/real.ts).
+  paidAt     DateTime? @db.Timestamptz(3)
+
+  @@unique([venueId, provider, externalId])
   @@index([venueId, createdAt])
   @@index([venueId, checkedInAt])
   @@index([venueId, date])
+  @@index([venueId, paidAt])
   @@index([channelId, createdAt])
+}
+
+/// One upload of a platform's orders export: what it did, for the owner's record.
+model Import {
+  id           String   @id @default(cuid())
+  venueId      String
+  venue        Venue    @relation(fields: [venueId], references: [id], onDelete: Cascade)
+  provider     String
+  fileName     String   @default("")
+  rows         Int
+  created      Int
+  updated      Int
+  rejected     Int
+  unattributed Int
+  createdAt    DateTime @default(now()) @db.Timestamptz(3)
+
+  @@index([venueId, createdAt])
 }
 
 /// One of the three weekly moves in "Next actions".

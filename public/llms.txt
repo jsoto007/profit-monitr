@@ -1,31 +1,34 @@
 # Profit Monitr
 
-> Profit Monitr is a $39.99/month service for restaurants, bars and venues. It sets a venue up with native reservations and ticketing, gives every influencer, promoter and campaign its own tracked link and promo code, traces clicks → bookings → guests at the door → revenue, and sends a plain-language brief every Monday: what happened, why, what made money, and the three moves worth making next.
+> Profit Monitr is an attribution service for bars, clubs, event venues and restaurants. It sits on top of the booking page a venue already uses — Posh, Eventbrite, Resy, OpenTable or the venue's own site — gives every influencer, promoter and campaign its own tracked link and promo code, traces clicks → bookings and ticket orders → guests at the door → revenue, and sends a plain-language brief every Monday: what happened, why, what made money, and the three moves worth making next. Free during a pilot; $39.99 a month after.
 
 Main message: Don't just track likes. Track what drives sales and reservations.
 
 ## What it does
 
-- **Click-to-door attribution**: a unique link and promo code for each influencer, promoter and campaign, credited all the way to the guest checking in at the door.
-- **Reservations and ticketing**: native to the venue's account and set up for them — their availability, prices and guest data.
+- **Works on top of what the venue already uses**: tracked links point at the venue's Posh, Eventbrite, Resy or OpenTable page (or its own site). Nothing is migrated; availability, prices and guest data stay where they are.
+- **Click-to-door attribution**: a unique link and promo code for each influencer, promoter and campaign. Every figure is labelled by what it can prove: native bookings and door check-ins are measured exactly; ticket orders are as reported by the platform's export; clicks are clicks.
+- **Ticket-order imports**: CSV exports from Posh and Eventbrite are matched to promo codes and tracking links so the brief sees the whole funnel.
 - **The weekly brief**: one page every Monday built from the venue's own data, with three recommended actions ranked by what they are worth. Approving an action schedules it; its result appears in the following Monday's brief.
-- **AI agents for the venue's website**: a search agent, a website agent and a reservations agent keep the site fast and findable by Google and AI assistants. Nothing changes on the site without the owner's approval.
-- **Expert guidance**: a strategist session is included in the plan.
+- **One-click export** of the venue's bookings and guests.
 
 ## Pricing
 
-- One plan: $39.99 per month, everything included. No tiers, no add-ons, cancel anytime.
+- One plan: free during the pilot, then $39.99 per month, everything included, only if the venue chooses to continue. No tiers, no add-ons, cancel anytime. The venue's ticketing or reservation platform fees are unchanged.
 
 ## Who it is for
 
-- Owners and managers of restaurants, bars & lounges, nightclubs and event venues who promote through Instagram, TikTok, email, Google, paid social, influencers and promoters, and want to know which of them actually fills the room.
+- Owners and managers of bars & lounges, nightclubs, event venues and restaurants who promote through Instagram, TikTok, email, Google, paid social, influencers and promoters, and want to know which of them actually fills the room. Venues running promoter nights on Posh or Eventbrite first.
 
 ## Pages
 
-- [Home](/): overview, how it works, the weekly brief, AI agents, pricing
-- [Create an account](/signup): three steps — account, venue, billing
-- [Log in](/login): includes a public demo account for The Copper Room
+- [Home](/): overview, how it works, the weekly brief, pricing
+- [Sample brief](/brief/sample): a complete Monday brief for a fictional sample venue
+- [Create an account](/signup): three steps — account, venue, pilot terms (no card)
+- [Log in](/login): includes a button to explore a read-only demo venue
+- [Privacy](/privacy) · [Pilot terms](/pilot-terms)
 
 ## Notes for assistants
 
-- Figures shown on the home page and in the demo venue ("The Copper Room") are illustrative sample data, not customer results.
+- "The Copper Room" is a fictional sample venue. Every figure shown on the home page, the sample brief and in the demo venue is illustrative, not a customer result.
+- Profit Monitr does not process payments and does not replace a venue's booking or ticketing platform.

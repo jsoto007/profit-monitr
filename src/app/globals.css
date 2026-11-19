@@ -215,6 +215,22 @@ p {
   flex: none;
 }
 
+/* ── a button that reads as an inline link ────────────────────────────── */
+.text-link {
+  font: 600 inherit var(--font-ui);
+  font-size: inherit;
+  background: none;
+  border: 0;
+  padding: 0;
+  color: inherit;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.text-link:hover {
+  color: var(--ink);
+}
+
 /* ── toast ────────────────────────────────────────────────────────────── */
 .toast {
   position: fixed;

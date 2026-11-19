@@ -3,11 +3,14 @@ import { FormError, HttpError } from "@/lib/api";
 import { checkIn, createBooking, releaseBooking, ticketAmountCents } from "@/lib/bookings";
 import { generateWeeklyBrief } from "@/lib/brief";
 import { getActions, getDashboard, getLive, getRange, getWebsite } from "@/lib/dashboard";
-import { approveAction, approveAgentNote, approveRecommendation, requestExpert, setSampleData } from "@/lib/dashboard/mutations";
+import { approveAction, approveAgentNote, approveRecommendation, chooseBookingPage, requestExpert, setBookingPage, setChannelDestination, setSampleData } from "@/lib/dashboard/mutations";
 import { realEventsSince } from "@/lib/dashboard/real";
 import { db } from "@/lib/db";
+import { importOrders } from "@/lib/imports";
+import { signup } from "@/lib/signup";
 import { serviceDay, zonedParts } from "@/lib/time";
 import { money } from "@/lib/util";
+import { destinationFor, GET as redirectGet, HEAD as redirectHead } from "@/app/r/[venue]/[...path]/route";
 import { makeAccount, resetDb } from "../helpers";
 
 beforeEach(resetDb);
@@ -284,6 +287,243 @@ describe("attribution loop on real data", () => {
     expect(await realEventsSince(user.venue, cursor)).toEqual([]);
     await checkIn(user.venue.id, booking.confirmation, "80");
     expect((await realEventsSince(user.venue, cursor)).map((e) => [e.k, e.amountCents])).toEqual([["door", 8_000]]);
+  });
+});
+
+describe("overlay: links that land on the venue's own platform", () => {
+  const ctx = (venue: string, path: string[]) => ({ params: Promise.resolve({ venue, path }) });
+  const req = (method = "GET", agent = "Mozilla/5.0 (iPhone)") => new Request("http://localhost:10000/r/x/y", { method, headers: { host: "app.test", "user-agent": agent, "cf-connecting-ip": "203.0.113.9" } });
+
+  it("sends people to the channel's own link, else the venue's booking page, else Monitr's page — and still counts the click", async () => {
+    let user = await makeAccount({ venue: "Overlay Bar" });
+    const ig = await db.channel.findFirstOrThrow({ where: { venueId: user.venue.id, slug: "ig" } });
+    const email = await db.channel.findFirstOrThrow({ where: { venueId: user.venue.id, slug: "email" } });
+
+    // Native: the redirect lands on Monitr's own booking page with the source attached.
+    let res = await redirectGet(req(), ctx("overlay-bar", ["ig"]));
+    expect([res.status, res.headers.get("location")]).toEqual([302, "http://app.test/book/overlay-bar?via=ig"]);
+
+    // The venue books on Posh: every link goes there.
+    expect(await setBookingPage(user, "posh", "https://posh.vip/e/sunset")).toEqual({ ok: true, changed: true });
+    expect(await setBookingPage(user, "posh", "https://posh.vip/e/sunset")).toEqual({ ok: true, changed: false });
+    res = await redirectGet(req(), ctx("overlay-bar", ["ig"]));
+    expect(res.headers.get("location")).toBe("https://posh.vip/e/sunset");
+
+    // One promoter has their own Eventbrite tracking link: it wins, and Eventbrite's aff carries the channel.
+    expect(await setChannelDestination(user, email.id, "https://www.eventbrite.com/e/jazz-123")).toEqual({ ok: true, changed: true });
+    res = await redirectGet(req(), ctx("overlay-bar", ["email"]));
+    expect(res.headers.get("location")).toBe("https://www.eventbrite.com/e/jazz-123?aff=email");
+    // HEAD (link checkers) goes to the same place without counting; the one GET per visitor counted once each.
+    const head = await redirectHead(req("HEAD"), ctx("overlay-bar", ["email"]));
+    expect(head.headers.get("location")).toBe("https://www.eventbrite.com/e/jazz-123?aff=email");
+    await redirectGet(req("GET", "facebookexternalhit/1.1"), ctx("overlay-bar", ["email"])); // unfurler
+    expect(await db.clickEvent.count({ where: { channelId: ig.id } })).toBe(1);
+    expect(await db.clickEvent.count({ where: { channelId: email.id } })).toBe(1);
+
+    // Pure resolution, no database: content keeps riding on the native page only.
+    user = await reload(user.id);
+    const r = new Request("http://localhost/r", { headers: { host: "app.test" } });
+    expect(destinationFor(r, { channel: { slug: "ig", destination: "" }, venue: { slug: "overlay-bar", bookingUrl: "", websiteVerified: false }, content: { slug: "reel" } }).toString()).toBe("http://app.test/book/overlay-bar?via=ig&c=reel");
+    expect(destinationFor(r, { channel: { slug: "ig", destination: "" }, venue: { slug: "overlay-bar", bookingUrl: user.venue.bookingUrl, websiteVerified: false }, content: { slug: "reel" } }).toString()).toBe("https://posh.vip/e/sunset");
+    // A stored destination that no longer parses falls through to Monitr's page rather than a 500.
+    expect(destinationFor(r, { channel: { slug: "ig", destination: "" }, venue: { slug: "overlay-bar", bookingUrl: "https://", websiteVerified: false } }).toString()).toBe("http://app.test/book/overlay-bar?via=ig");
+  });
+
+  it("a clicks-only source never earns a conversion verdict, never ranks worst, and the brief asks for the platform's orders instead", async () => {
+    let user = await makeAccount({ venue: "Posh Nights" });
+    await setSampleData(user, false);
+    await setBookingPage(user, "posh", "https://posh.vip/e/late");
+    user = await reload(user.id);
+    const ig = await db.channel.findFirstOrThrow({ where: { venueId: user.venue.id, slug: "ig" } });
+    const lastWeek = new Date(Date.now() - 7 * 86_400_000);
+    await db.clickEvent.createMany({ data: Array.from({ length: 60 }, () => ({ channelId: ig.id })) });
+    await db.clickEvent.createMany({ data: Array.from({ length: 80 }, () => ({ channelId: ig.id, createdAt: lastWeek })) });
+
+    const d = await getRange(user.venue, "week");
+    const row = d.channels.find((c) => c.code === "INSTA")!;
+    expect(row).toMatchObject({ clicks: 60, door: 0, revCents: 0, rate: 0, roi: "—", weak: false, verdict: "Getting clicks", fidelity: "clicks", provider: "posh", destination: "" });
+    expect(d.metrics.why[0]).toBe("**Instagram** sent 60 people to your Posh page — upload its orders and the bookings get credited here.");
+    expect(d.sortNotes.rate).toBe("Not enough clicks to compare conversion yet."); // never "turns 0.0% of clicks into guests"
+
+    const brief = await generateWeeklyBrief(user.venue);
+    expect(brief!.actions.map((a) => a.title)).toEqual(["Upload last week's Posh orders", "Give every promoter and influencer their own link and code", expect.stringMatching(/^Plan something for/)]);
+    expect(brief!.actions.some((a) => a.title.startsWith("Fix or pause"))).toBe(false);
+  });
+
+  it("destinations are validated at write time and scoped to the owner's venue", async () => {
+    const [mine, theirs] = [await makeAccount(), await makeAccount()];
+    const myIg = await db.channel.findFirstOrThrow({ where: { venueId: mine.venue.id, slug: "ig" } });
+    await expect(setChannelDestination(theirs, myIg.id, "https://posh.vip/e/x")).rejects.toMatchObject({ status: 404 });
+    await expect(setChannelDestination(mine, "nope", "https://posh.vip/e/x")).rejects.toMatchObject({ status: 404 });
+    expect((await db.channel.findUniqueOrThrow({ where: { id: myIg.id } })).destination).toBe("");
+    const demo = await makeAccount({ isDemo: true });
+    expect(await setBookingPage(demo, "posh", "https://posh.vip/e/x")).toEqual({ ok: true, changed: false });
+    expect((await reload(demo.id)).venue.bookingUrl).toBe("");
+  });
+
+  it("sign-up stores where guests book, in canonical form, and refuses a page off the allow-list", async () => {
+    const base = { name: "Dana Test", password: "correct horse 9!", vtype: "Nightclub", city: "Brooklyn, NY", website: "", sells: ["Event tickets"], promos: [], agree: true };
+    const posh = await signup({ ...base, email: "posh@example.test", venue: "Posh Venue", bookingProvider: "posh", bookingUrl: "posh.vip/e/late " });
+    expect((await reload(posh.id)).venue).toMatchObject({ bookingProvider: "posh", bookingUrl: "https://posh.vip/e/late" });
+    // "My own website" with the website field empty: the pasted page is the website.
+    const own = await signup({ ...base, email: "own@example.test", venue: "Own Site", bookingProvider: "website", bookingUrl: "https://www.ownsite.example/book" });
+    expect((await reload(own.id)).venue).toMatchObject({ bookingProvider: "website", bookingUrl: "https://www.ownsite.example/book", website: "www.ownsite.example" });
+    const bad = await signup({ ...base, email: "bad@example.test", venue: "Bad Link", bookingProvider: "resy", bookingUrl: "https://evil.example/phish" }).catch((e) => e);
+    expect(Object.keys(bad.fields)).toEqual(["bookingUrl"]);
+    const none = await signup({ ...base, email: "none@example.test", venue: "No Link", bookingProvider: "eventbrite", bookingUrl: "" }).catch((e) => e);
+    expect(none.fields).toEqual({ bookingUrl: "Paste the page where guests book." });
+    // Unknown provider or no provider: Monitr's own page, no URL kept.
+    const native = await signup({ ...base, email: "native@example.test", venue: "Native", bookingProvider: "ticketmaster", bookingUrl: "https://posh.vip/e/ignored" });
+    expect((await reload(native.id)).venue).toMatchObject({ bookingProvider: "native", bookingUrl: "" });
+  });
+});
+
+describe("own-site links wait for verification; content under an external link is never 'Fix or cut'", () => {
+  const ctx = (venue: string, path: string[]) => ({ params: Promise.resolve({ venue, path }) });
+  const req = () => new Request("http://localhost:10000/r/x/y", { method: "GET", headers: { host: "app.test", "user-agent": "Mozilla/5.0 (iPhone)", "cf-connecting-ip": "203.0.113.9" } });
+
+  it("adopts the pasted site as the venue's website, keeps links on Monitr's page until verified, then sends them on", async () => {
+    let user = await makeAccount({ venue: "Own Site Bar", website: "" });
+    await expect(chooseBookingPage(user, "resy", "", [])).rejects.toMatchObject({ fields: { bookingUrl: "Paste the page where guests book." } });
+    await expect(chooseBookingPage(user, "website", "https://bit.ly/ownsite", [])).rejects.toMatchObject({ fields: { bookingUrl: expect.stringContaining("Shortened") } });
+    const chosen = await chooseBookingPage(user, "website", "www.ownsite.example/book", []);
+    expect(chosen).toMatchObject({ changed: true, bookingProvider: "website", bookingUrl: "https://www.ownsite.example/book", website: "www.ownsite.example", websiteVerified: false });
+    user = await reload(user.id);
+    expect([user.venue.website, user.venue.bookingUrl, user.venue.websiteVerified]).toEqual(["www.ownsite.example", "https://www.ownsite.example/book", false]);
+
+    // Not yet verified: the link still lands on Monitr's page, and the channel is still "exact".
+    let res = await redirectGet(req(), ctx("own-site-bar", ["ig"]));
+    expect(res.headers.get("location")).toBe("http://app.test/book/own-site-bar?via=ig");
+    const real = { ...user.venue, sampleData: false };
+    expect((await getRange(real, "week")).channels.find((c) => c.code === "INSTA")).toMatchObject({ fidelity: "exact", provider: "native" });
+
+    // The operator verifies the site (README → "Verifying a venue's website").
+    await db.venue.update({ where: { id: user.venue.id }, data: { websiteVerified: true } });
+    res = await redirectGet(req(), ctx("own-site-bar", ["ig"]));
+    expect(res.headers.get("location")).toBe("https://www.ownsite.example/book");
+    user = await reload(user.id);
+    expect((await getRange({ ...user.venue, sampleData: false }, "week")).channels.find((c) => c.code === "INSTA")).toMatchObject({ fidelity: "clicks", provider: "website" });
+
+    // Back to Monitr's page clears it; a platform page needs no verification.
+    expect(await chooseBookingPage(user, "native", "", [])).toMatchObject({ bookingProvider: "native", bookingUrl: "" });
+    expect(await chooseBookingPage(user, "posh", "posh.vip/e/x", [])).toMatchObject({ bookingProvider: "posh", bookingUrl: "https://posh.vip/e/x" });
+    res = await redirectGet(req(), ctx("own-site-bar", ["ig"]));
+    expect(res.headers.get("location")).toBe("https://posh.vip/e/x");
+  });
+
+  it("a post under a clicks-only channel gets 'Keep going', and the spend on it stays out of the return on marketing", async () => {
+    let user = await makeAccount({ venue: "Content Bar" });
+    await setSampleData(user, false);
+    await setBookingPage(user, "posh", "https://posh.vip/e/late");
+    user = await reload(user.id);
+    const ig = await db.channel.findFirstOrThrow({ where: { venueId: user.venue.id, slug: "ig" } });
+    await db.channel.update({ where: { id: ig.id }, data: { weeklySpendCents: 50_000 } });
+    const reel = await db.content.create({ data: { venueId: user.venue.id, channelId: ig.id, name: "Sunset reel", slug: "reel" } });
+    await db.clickEvent.createMany({ data: Array.from({ length: 60 }, () => ({ channelId: ig.id, contentId: reel.id })) });
+    const d = await getRange(user.venue, "week");
+    expect(d.content[0]).toMatchObject({ name: "Sunset reel", door: 0, verdict: "Keep going" });
+    expect([d.metrics.spendCents, d.metrics.roi]).toEqual([0, "—"]); // never "0.0×" on spend whose return cannot be seen here
+    expect(d.reservations.sources.find((s) => s.name === "Instagram")).toBeUndefined(); // not "0 bookings · 0 in": unmeasured
+    expect(d.metrics.summary).toContain("Your links send people to Posh");
+  });
+});
+
+describe("imported platform orders", () => {
+  const stamp = (d: Date) => {
+    const p = zonedParts(d, NY);
+    return `${p.y}-${pad(p.m)}-${pad(p.d)} ${pad(p.h)}:${pad(p.min)}`;
+  };
+  const HEAD = "Order #,Order Date,First Name,Last Name,Email,Quantity,Total Paid,Order Status,Promo Code,Affiliate,Event Name,Event Date,Checked In";
+  const daysAgo = (n: number) => new Date(Date.now() - n * 86_400_000);
+
+  it("credits each order to its code or link, recognises revenue when the platform took it, and never counts a re-upload twice", async () => {
+    let user = await makeAccount({ venue: "Import Bar", promos: ["Instagram", "Email"] });
+    await setSampleData(user, false);
+    await setBookingPage(user, "eventbrite", "https://www.eventbrite.com/e/jazz-123");
+    user = await reload(user.id);
+    const ordered = stamp(daysAgo(3));
+    const night = stamp(new Date(Date.now() + 86_400_000));
+    const file = (status1001 = "Attending") => [
+      HEAD,
+      `1001,${ordered},Ana,Guest,ana@x.test,2,$60.00,${status1001},INSTA,,Jazz Night,${night},No`,
+      `1002,${ordered},Bo,Guest,bo@x.test,1,40.00,Attending,,email,Jazz Night,${night},Yes`,
+      `1003,${ordered},Cy,Guest,cy@x.test,1,25.00,Attending,,,Jazz Night,${night},No`,
+      `1004,${ordered},Di,Guest,di@x.test,1,15.00,Refunded,INSTA,,Jazz Night,${night},No`,
+      "oops,not a date,X,Y,x@y.test,1,10.00,Attending,,,,,",
+    ].join("\n");
+
+    // Dry run: everything is reported, nothing is written.
+    const dry = await importOrders(user, "eventbrite", file(), "orders.csv", true);
+    expect(dry).toMatchObject({ rows: 4, created: 4, updated: 0, rejected: 1, attributed: 3, unattributed: 1, refunded: 1, revenueCents: 12_500, missing: [] });
+    expect(dry.byChannel).toEqual([{ name: "Instagram", orders: 2, revenueCents: 6_000 }, { name: "Email", orders: 1, revenueCents: 4_000 }]);
+    expect(await db.booking.count()).toBe(0);
+
+    const done = await importOrders(user, "eventbrite", file(), "orders.csv", false);
+    expect([done.created, done.updated]).toEqual([4, 0]);
+    const rows = await db.booking.findMany({ where: { venueId: user.venue.id }, orderBy: { externalId: "asc" } });
+    // Attendance in the file ("Yes" on 1002) is never written as a door check-in.
+    expect(rows.map((r) => [r.externalId, r.provider, r.kind, r.amountCents, r.partySize, r.promoCode, !!r.channelId, r.paidAt?.getTime() === r.createdAt.getTime(), !!r.checkedInAt])).toEqual([
+      ["1001", "eventbrite", "TICKET", 6_000, 2, "INSTA", true, true, false],
+      ["1002", "eventbrite", "TICKET", 4_000, 1, "EMAIL", true, true, false],
+      ["1003", "eventbrite", "TICKET", 2_500, 1, "", false, true, false],
+      ["1004", "eventbrite", "TICKET", 0, 0, "INSTA", true, false, false], // refunded: no money, no tickets
+    ]);
+    expect(done.attended).toBe(1);
+    // The door never works an imported order: it cannot be checked in, billed or released.
+    await expect(checkIn(user.venue.id, rows[0].confirmation, "10.00")).rejects.toMatchObject({ status: 404 });
+    await expect(releaseBooking(user.venue.id, rows[0].confirmation)).rejects.toMatchObject({ status: 404 });
+    expect(await db.booking.count({ where: { venueId: user.venue.id } })).toBe(4);
+    expect(rows[0].createdAt.getTime()).toBe(daysAgo(3).getTime() - (daysAgo(3).getTime() % 60_000)); // the order's own time, to the minute
+    expect(await db.event.count({ where: { venueId: user.venue.id, externalId: { not: null }, capacity: 0 } })).toBe(1);
+
+    // Revenue in the period the platform took it (3 days ago), split from the door, with the loose $25 named.
+    const d = await getRange(user.venue, "month");
+    const m = d.metrics;
+    expect([m.revCents, m.platformCents, m.doorCents, m.unattributedCents, m.tix]).toEqual([10_000, 10_000, 0, 2_500, 4]);
+    expect([m.showRate, m.noShowRate]).toEqual(["—", "—"]); // attendance is the platform's word, not a door measurement
+    // A platform source's "booked" is orders, not tickets: the two-ticket order 1001 is one order (1004 was refunded).
+    expect(d.channels.find((c) => c.code === "INSTA")).toMatchObject({ booked: 1, revCents: 6_000, fidelity: "platform", provider: "eventbrite", roi: "free" });
+    expect(d.channels.find((c) => c.code === "EMAIL")).toMatchObject({ booked: 1, revCents: 4_000, fidelity: "platform" });
+    expect(await db.event.findFirst({ where: { venueId: user.venue.id, externalId: { not: null } }, select: { externalId: true } })).toMatchObject({ externalId: expect.stringMatching(/^eventbrite:/) }); // namespaced per platform
+    expect(d.reservations.upcoming[0]).toMatchObject({ when: expect.stringContaining("Jazz Night"), headline: "4 sold", note: "capacity not set" });
+    expect((await getLive(user.venue)).feed).toEqual([]); // uploads are history, not tonight's feed
+
+    // The same file again: the index decides, nothing doubles.
+    const again = await importOrders(user, "eventbrite", file(), "orders.csv", false);
+    expect([again.created, again.updated]).toEqual([0, 4]);
+    expect((await getRange(user.venue, "month")).metrics.revCents).toBe(10_000);
+
+    // A later export carries a refund for 1001: its money goes, the row stays, the count of orders does not change.
+    await importOrders(user, "eventbrite", file("Refunded"), "orders-later.csv", false);
+    expect((await getRange(user.venue, "month")).metrics.revCents).toBe(4_000);
+    expect(await db.booking.count({ where: { venueId: user.venue.id } })).toBe(4);
+    expect(await db.import.count({ where: { venueId: user.venue.id } })).toBe(3);
+    // The old file uploaded again does not bring the refund back.
+    const stale = await importOrders(user, "eventbrite", file(), "orders.csv", false);
+    expect([stale.keptRefunded, stale.updated]).toEqual([1, 3]);
+    expect((await getRange(user.venue, "month")).metrics.revCents).toBe(4_000);
+    // The brief ranks the platform bookings when the door has nothing: Email (1 order, $40) is now best.
+    const b2 = await generateWeeklyBrief(user.venue, new Date(Date.now() + 7 * 86_400_000));
+    expect(b2!.actions[0].title).toBe("Go again with Email this week");
+    expect(b2!.actions[0].description).toContain("1 bookings on Eventbrite");
+    const brief = await generateWeeklyBrief(user.venue, new Date(Date.now() + 7 * 86_400_000));
+    expect(brief).toMatchObject({ platformCents: 4_000, doorCents: 0, unattributedCents: 2_500 });
+  });
+
+  it("refuses the demo venue and a file without an order id, and cannot touch another venue's rows", async () => {
+    const demo = await makeAccount({ isDemo: true });
+    await expect(importOrders(demo, "posh", "Order ID,Date\n1,2026-09-26", "x.csv", false)).rejects.toMatchObject({ status: 403 });
+    const user = await makeAccount({ venue: "No Id Bar" });
+    const s = await importOrders(user, "posh", "Buyer,Amount\nAna,10", "x.csv", false);
+    expect(s.missing).toEqual(["id", "date"]);
+    expect(await db.booking.count()).toBe(0);
+    const other = await makeAccount({ venue: "Other Bar" });
+    await importOrders(user, "posh", `Order ID,Date,Name,Tickets,Total\n7,${stamp(new Date())},Ana Guest,1,10.00`, "x.csv", false);
+    expect(await db.booking.count({ where: { venueId: other.venue.id } })).toBe(0);
+    expect(await db.booking.count({ where: { venueId: user.venue.id, provider: "posh", externalId: "7" } })).toBe(1);
+    // The same platform order id at another venue is another row; a native booking is never touched by any upload.
+    await importOrders(other, "posh", `Order ID,Date,Name,Tickets,Total\n7,${stamp(new Date())},Zed Guest,1,10.00`, "x.csv", false);
+    expect(await db.booking.count({ where: { provider: "posh", externalId: "7" } })).toBe(2);
   });
 });
 

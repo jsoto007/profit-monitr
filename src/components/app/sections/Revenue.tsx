@@ -17,6 +17,13 @@ export function Revenue({ m, channels, content }: { m: Metrics; channels: Channe
           <Kpi label="Revenue per guest" value={m.revPerGuest} note={m.revPerGuestNote} />
           <Kpi label="Marketing spend" value={money(m.spendCents)} note={`${m.roi} return`} />
         </div>
+        {/* Two recognition bases never share one number unexplained: what the platform took at purchase, and what the door took. */}
+        {(m.platformCents > 0 || m.unattributedCents > 0) && (
+          <p className="rev-split">
+            {m.platformCents > 0 && <>Of this, <b>{money(m.platformCents)}</b> was ticket sales your platform took at purchase and <b>{money(m.doorCents)}</b> was taken at the door. </>}
+            {m.unattributedCents > 0 && <>Another <b>{money(m.unattributedCents)}</b> of platform orders carried no code or link, so no source gets the credit.</>}
+          </p>
+        )}
       </section>
 
       <section className="pod alt rev-pod" aria-labelledby="by-channel">
@@ -29,7 +36,7 @@ export function Revenue({ m, channels, content }: { m: Metrics; channels: Channe
             <div key={c.id} className={`rev-row${c.weak ? " is-weak" : ""}`}>
               <span>{c.name}</span>
               <div className="track"><div style={{ width: pct(max ? c.revCents / max : 0) }} /></div>
-              <span><b>{money(c.revCents)}</b> <span>· {c.roi}</span></span>
+              {c.fidelity === "clicks" ? <span><b>—</b> <span>· clicks only</span></span> : <span><b>{money(c.revCents)}</b> <span>· {c.roi}</span></span>}
             </div>
           ))}
         </div>

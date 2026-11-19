@@ -16,7 +16,11 @@ export type NewAccount = {
   sellsReservations: boolean;
   sellsTickets: boolean;
   promos: string[];
-  cardLast4: string;
+  /** Where guests book today (src/lib/destinations.ts); omitted = Monitr's own booking page. */
+  bookingProvider?: string;
+  bookingUrl?: string;
+  /** Legacy column from the prototype card form; nothing sets it any more. */
+  cardLast4?: string;
   subscriptionStatus: string;
   isDemo?: boolean;
 };
@@ -88,7 +92,9 @@ export async function createAccount(a: NewAccount) {
               sellsReservations: a.sellsReservations,
               sellsTickets: a.sellsTickets,
               promoChannels: a.promos,
-              cardLast4: a.cardLast4,
+              bookingProvider: a.bookingProvider ?? "native",
+              bookingUrl: a.bookingUrl ?? "",
+              cardLast4: a.cardLast4 ?? "",
               subscriptionStatus: a.subscriptionStatus,
               channels: { create: defaultChannels(a.promos) },
               ...sampleWorkflow(),
@@ -125,7 +131,6 @@ export async function ensureDemoAccount() {
       sellsReservations: true,
       sellsTickets: true,
       promos: ["Instagram", "TikTok", "Email", "Influencers"],
-      cardLast4: "4242",
       subscriptionStatus: "demo",
       isDemo: true,
     });

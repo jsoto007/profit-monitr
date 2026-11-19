@@ -1,0 +1,66 @@
+/* Privacy notice and pilot terms — the white canvas, one readable column. */
+.lg-canvas {
+  background: var(--paper);
+  border-radius: var(--r-app);
+  min-height: calc(100vh - 2 * var(--frame-pad));
+  padding: clamp(20px, 3vw, 36px) clamp(20px, 4vw, 56px) 64px;
+}
+.lg-top {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  padding-bottom: 20px;
+  border-bottom: var(--border-card);
+}
+.lg-nav {
+  margin-left: auto;
+  display: flex;
+  gap: 18px;
+  font-size: 14px;
+  font-weight: 600;
+}
+.lg-nav a {
+  color: var(--text-label);
+}
+.lg-body {
+  max-width: 68ch;
+  margin: clamp(28px, 5vw, 56px) 0 0;
+  font-size: 16px;
+  line-height: 1.6;
+  color: var(--text-body);
+}
+.lg-body h1 {
+  font-size: var(--fs-form-title);
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  line-height: 1.05;
+  color: var(--ink);
+  margin: 6px 0 8px;
+}
+.lg-updated {
+  font-size: 13px;
+  color: var(--text-faint);
+  margin-bottom: 28px;
+}
+.lg-body h2 {
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+  margin: 32px 0 8px;
+}
+.lg-body p + p {
+  margin-top: 10px;
+}
+.lg-body ul {
+  margin: 8px 0 0;
+  padding-left: 20px;
+}
+.lg-body li + li {
+  margin-top: 6px;
+}
+.lg-body a {
+  color: var(--ink);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}

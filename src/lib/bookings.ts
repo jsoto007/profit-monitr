@@ -129,7 +129,9 @@ export async function checkIn(venueId: string, rawConfirmation: unknown, rawAmou
   const amountCents = hasAmount ? parseDollars(rawAmount) : null;
   if (hasAmount && amountCents === null) throw new FormError({ amount: "Enter the bill as dollars and cents, e.g. 184.50." });
 
-  const booking = await db.booking.findFirst({ where: { venueId, confirmation } });
+  // Only bookings made on Monitr's page are worked at Monitr's door: an imported platform order
+  // is scanned on its platform, its money is already recognised, and it must never be released.
+  const booking = await db.booking.findFirst({ where: { venueId, confirmation, provider: "native" } });
   if (!booking) throw new HttpError(404, "No booking with that confirmation code.");
   if (booking.kind === "TICKET" && amountCents !== null) throw new FormError({ amount: "Tickets are priced when they’re booked — leave the bill empty." });
 
@@ -152,8 +154,8 @@ export async function checkIn(venueId: string, rawConfirmation: unknown, rawAmou
  */
 export async function releaseBooking(venueId: string, rawConfirmation: unknown) {
   const confirmation = str(rawConfirmation, 20).toUpperCase();
-  const { count } = await db.booking.deleteMany({ where: { venueId, confirmation, checkedInAt: null } });
+  const { count } = await db.booking.deleteMany({ where: { venueId, confirmation, checkedInAt: null, provider: "native" } });
   if (count) return { released: true };
-  const exists = await db.booking.findFirst({ where: { venueId, confirmation }, select: { id: true } });
+  const exists = await db.booking.findFirst({ where: { venueId, confirmation, provider: "native" }, select: { id: true } });
   throw new HttpError(exists ? 409 : 404, exists ? "That party has already checked in." : "No booking with that confirmation code.");
 }

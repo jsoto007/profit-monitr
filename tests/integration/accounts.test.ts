@@ -14,7 +14,6 @@ const body = (over: Partial<SignupBody> = {}): SignupBody => ({
   name: "Dana Test", email: "dana@example.test", password: "correct horse 9!",
   venue: "Test Kitchen & Bar", vtype: "Bar & lounge", city: "Brooklyn, NY", website: "testkitchen.example",
   sells: ["Table reservations", "Event tickets"], promos: ["TikTok", "Email"], timezone: "America/New_York", agree: true,
-  card: { name: "Dana Test", last4: "4242", zip: "11201" },
   ...over,
 });
 
@@ -40,7 +39,7 @@ describe("createAccount", () => {
   });
 
   it("lets the unique index — not a prior read — settle a race for the same email", async () => {
-    const one = { name: "A", email: "race@example.test", password: "password1", venue: "Race", vtype: "Restaurant", city: "NYC", website: "", sellsReservations: true, sellsTickets: false, promos: [], cardLast4: "4242", subscriptionStatus: "demo" };
+    const one = { name: "A", email: "race@example.test", password: "password1", venue: "Race", vtype: "Restaurant", city: "NYC", website: "", sellsReservations: true, sellsTickets: false, promos: [], subscriptionStatus: "pilot" };
     const results = await Promise.allSettled([createAccount(one), createAccount(one), createAccount(one)]);
     expect(results.filter((r) => r.status === "fulfilled")).toHaveLength(1);
     for (const r of results) if (r.status === "rejected") expect(r.reason).toBeInstanceOf(EmailTakenError);
@@ -55,31 +54,33 @@ describe("createAccount", () => {
   });
 });
 
-describe("signup — no-charge prototype billing", () => {
+describe("signup — free pilot accounts, no card", () => {
   afterEach(() => vi.unstubAllEnvs());
 
-  it("creates the account with only the card's last four digits", async () => {
+  it("creates a pilot account that has access and holds no billing data", async () => {
     const user = await signup(body());
     const venue = await db.venue.findUniqueOrThrow({ where: { userId: user.id } });
-    expect([venue.subscriptionStatus, venue.cardLast4, venue.stripeCustomerId, venue.timezone]).toEqual(["demo", "4242", null, "America/New_York"]);
+    expect([venue.subscriptionStatus, venue.cardLast4, venue.stripeCustomerId, venue.timezone]).toEqual(["pilot", "", null, "America/New_York"]);
+    expect(hasAccess(venue.subscriptionStatus)).toBe(true);
     expect([venue.sellsReservations, venue.sellsTickets, venue.promoChannels]).toEqual([true, true, ["TikTok", "Email"]]);
   });
 
-  it("a modified client that posts a full card number, expiry and CVC gets none of it stored", async () => {
+  it("a modified client that posts card details gets none of it stored", async () => {
     const hostile = { ...body(), card: { name: "Dana Test", last4: "4242", zip: "11201", number: "4242424242424242", exp: "12/30", cvc: "123" } } as SignupBody;
     const user = await signup(hostile);
     const everything = JSON.stringify(await db.user.findUniqueOrThrow({ where: { id: user.id }, include: { venue: true } }));
-    expect(everything).not.toContain("4242424242424242");
+    expect(everything).not.toContain("4242");
     expect(everything).not.toContain("12/30");
-    await expect(signup(body({ email: "b@example.test", card: { name: "Dana Test", last4: "4242424242424242", zip: "11201" } }))).resolves.toBeTruthy();
-    expect((await db.venue.findFirstOrThrow({ where: { user: { email: "b@example.test" } } })).cardLast4).toBe("4242");
   });
 
   it("reports every invalid field at once and creates nothing", async () => {
     const err = await signup({ agree: false }).catch((e) => e);
     expect(err).toBeInstanceOf(FormError);
-    expect(Object.keys(err.fields).sort()).toEqual(["agree", "card", "cardName", "city", "email", "name", "password", "sells", "venue", "zip"]);
+    expect(Object.keys(err.fields).sort()).toEqual(["agree", "city", "email", "name", "password", "sells", "venue"]);
     expect(await db.user.count()).toBe(0);
+    // Consent is a real boolean, not any truthy value a client might send.
+    const nope = await signup(body({ agree: "yes" as unknown as boolean })).catch((e) => e);
+    expect(nope.fields).toEqual({ agree: "Please agree to continue." });
   });
 
   it("refuses an email that is already registered, and the demo login's address", async () => {
@@ -100,13 +101,13 @@ describe("signup — no-charge prototype billing", () => {
     expect([venue.type, venue.sellsTickets, venue.promoChannels, venue.timezone]).toEqual(["Restaurant", false, [], "America/New_York"]);
   });
 
-  it("in production, sign-up is closed unless free accounts were explicitly accepted", async () => {
+  it("in production, sign-up is closed unless pilots were explicitly opened", async () => {
     vi.stubEnv("NODE_ENV", "production");
-    vi.stubEnv("ALLOW_DEMO_BILLING", "");
+    vi.stubEnv("ALLOW_SIGNUPS", "");
     expect(signupsOpen()).toBe(false);
     await expect(signup(body())).rejects.toMatchObject({ status: 503 });
     expect(await db.user.count()).toBe(0);
-    vi.stubEnv("ALLOW_DEMO_BILLING", "1");
+    vi.stubEnv("ALLOW_SIGNUPS", "1");
     expect(signupsOpen()).toBe(true);
     await expect(signup(body())).resolves.toBeTruthy();
   });
@@ -115,8 +116,8 @@ describe("signup — no-charge prototype billing", () => {
 describe("access and request hardening", () => {
   afterEach(() => vi.unstubAllEnvs());
 
-  it("only paid-up (or demo-billing) venues may use the app", () => {
-    expect(["active", "trialing", "past_due", "demo"].map(hasAccess)).toEqual([true, true, true, true]);
+  it("only paid-up, pilot or demo venues may use the app", () => {
+    expect(["active", "trialing", "past_due", "pilot", "demo"].map(hasAccess)).toEqual([true, true, true, true, true]);
     expect(["pending", "canceled", "unpaid", "incomplete", "incomplete_expired", ""].map(hasAccess)).toEqual([false, false, false, false, false, false]);
   });
 

@@ -4,9 +4,25 @@ export const SITE = {
   short: "Monitr",
   tagline: "Don't just track likes. Track what drives sales and reservations.",
   description:
-    "Profit Monitr ties every reservation, ticket and sale back to the post, link or campaign that earned it — then tells restaurants, bars and venues, every Monday, exactly what to do next. $39.99 a month, everything included.",
+    "Profit Monitr sits on top of the booking page a venue already uses — Posh, Eventbrite, Resy, OpenTable or its own site — and ties every ticket, reservation and guest at the door back to the post, promoter or campaign that earned it. Every Monday it tells bars, clubs, event venues and restaurants exactly what to do next. Free during the pilot; $39.99 a month after.",
   price: "$39.99",
+  /** The one line about money, used wherever the price appears. */
+  pilotLine: "Free during the pilot; $39.99 a month after, only if you choose to continue.",
   year: 2026,
+} as const;
+
+/**
+ * Who stands behind the product. Every field is optional and nothing is
+ * rendered for an empty one — fill these in before any outreach (README →
+ * "Before launch"). Never invent them.
+ */
+export const CONTACT = {
+  founder: "",
+  /** Legal entity, e.g. "SotoDev LLC". */
+  entity: "",
+  email: "",
+  /** Scheduling link for the 15-minute call ("Book a 15-minute call" appears only when set). */
+  callUrl: "",
 } as const;
 
 /**

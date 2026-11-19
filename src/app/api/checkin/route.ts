@@ -29,7 +29,8 @@ export const DELETE = handler(async (req: Request) => {
  * GET /api/checkin[?q=] — the door list. Without a search: every booking still
  * to arrive from yesterday onwards (soonest first — this is also where held
  * tickets are found and released), then recent arrivals. `q` searches all
- * bookings by confirmation code or guest name.
+ * bookings by confirmation code or guest name. Only bookings made on Monitr's
+ * page are listed: imported platform orders are scanned on their platform.
  */
 export const GET = handler(async (req: Request) => {
   const user = await requireUser();
@@ -38,6 +39,7 @@ export const GET = handler(async (req: Request) => {
   const rows = await db.booking.findMany({
     where: {
       venueId: user.venue.id,
+      provider: "native",
       ...(q
         ? { OR: [{ confirmation: { contains: q.toUpperCase() } }, { guestName: { contains: q, mode: "insensitive" as const } }] }
         : { OR: [{ checkedInAt: null, date: { gte: recent } }, { checkedInAt: { gte: recent } }] }),

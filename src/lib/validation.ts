@@ -1,5 +1,6 @@
 /** Sign-up validation shared by the form (per step) and the API (all steps). Dependency-free. */
 
+import type { Provider } from "./destinations";
 import { EMAIL_RE, PROMOS, SELLS, VENUE_TYPES } from "./util";
 
 export type SignupFields = {
@@ -12,18 +13,17 @@ export type SignupFields = {
   website: string;
   sells: string[];
   promos: string[];
-  cardName: string;
-  card: string;
-  exp: string;
-  cvc: string;
-  zip: string;
+  /** Where guests book today; "native" = Monitr's own booking page, no URL needed. */
+  bookingProvider: Provider;
+  bookingUrl: string;
   agree: boolean;
 };
 
 export const EMPTY_SIGNUP: SignupFields = {
   name: "", email: "", password: "",
-  venue: "", vtype: "Restaurant", city: "", website: "", sells: ["Table reservations"], promos: [],
-  cardName: "", card: "", exp: "", cvc: "", zip: "", agree: false,
+  venue: "", vtype: "Bar & lounge", city: "", website: "", sells: ["Table reservations", "Event tickets"], promos: [],
+  bookingProvider: "native", bookingUrl: "",
+  agree: false,
 };
 
 export type Errors = Partial<Record<keyof SignupFields, string>>;
@@ -36,35 +36,27 @@ export function validateAccount(f: Pick<SignupFields, "name" | "email" | "passwo
   return e;
 }
 
-export function validateVenue(f: Pick<SignupFields, "venue" | "city" | "sells">): Errors {
+export function validateVenue(f: Pick<SignupFields, "venue" | "city" | "sells" | "bookingProvider" | "bookingUrl">): Errors {
   const e: Errors = {};
   if (f.venue.trim().length < 2) e.venue = "What is your venue called?";
   if (f.city.trim().length < 2) e.city = "Which city?";
   if (!f.sells.length) e.sells = "Pick at least one.";
+  // The URL's allow-list check lives on the server (src/lib/destinations.ts); here only presence.
+  if (f.bookingProvider !== "native" && !f.bookingUrl.trim()) e.bookingUrl = "Paste the page where guests book.";
   return e;
 }
 
-/**
- * Card fields are checked in the browser only — the number, expiry and CVC
- * never leave it. `withCard` is false when a hosted payment form collects them.
- */
-export function validateBilling(f: Pick<SignupFields, "cardName" | "card" | "exp" | "cvc" | "zip" | "agree">, withCard = true): Errors {
+/** Step 3 is the pilot agreement: no card, nothing charged — only the consent. */
+export function validateConsent(f: Pick<SignupFields, "agree">): Errors {
   const e: Errors = {};
-  if (withCard) {
-    if (f.cardName.trim().length < 2) e.cardName = "Name as it appears on the card.";
-    if (f.card.replace(/\D/g, "").length !== 16) e.card = "Enter a 16-digit card number.";
-    if (!/^(0[1-9]|1[0-2])\/\d{2}$/.test(f.exp)) e.exp = "MM/YY";
-    if (!/^\d{3,4}$/.test(f.cvc)) e.cvc = "3–4 digits";
-    if (f.zip.trim().length < 3) e.zip = "Required";
-  }
   if (!f.agree) e.agree = "Please agree to continue.";
   return e;
 }
 
-export function validateStep(step: number, f: SignupFields, withCard = true): Errors {
+export function validateStep(step: number, f: SignupFields): Errors {
   if (step === 1) return validateAccount(f);
   if (step === 2) return validateVenue(f);
-  if (step === 3) return validateBilling(f, withCard);
+  if (step === 3) return validateConsent(f);
   return {};
 }
 

@@ -1,6 +1,7 @@
 import type { CurrentUser } from "@/lib/auth";
-import { HttpError } from "@/lib/api";
+import { FormError, HttpError } from "@/lib/api";
 import { db } from "@/lib/db";
+import { isProvider, normalizeDestination, websiteHost, type Provider } from "@/lib/destinations";
 import { sendEmail } from "@/lib/email";
 
 /**
@@ -51,7 +52,7 @@ export async function approveAgentNote(user: CurrentUser, id: string): Promise<D
   return { ok: true, changed: count === 1 };
 }
 
-/** "Book a 30-minute session": one open request per venue per fortnight; the team follows up by email. */
+/** "Book a 30-minute call": one open request per venue per fortnight; the founder follows up by email. */
 export async function requestExpert(user: CurrentUser, now = new Date()): Promise<Decision> {
   if (readOnly(user)) return { ok: true, changed: false };
   const since = new Date(now.getTime() - 14 * 86_400_000);
@@ -64,8 +65,8 @@ export async function requestExpert(user: CurrentUser, now = new Date()): Promis
   });
   if (changed) {
     const ops = process.env.OPS_EMAIL;
-    if (ops) await sendEmail({ to: ops, subject: `Strategist session requested — ${user.venue.name}`, text: `${user.name} <${user.email}> asked for a 30-minute session for ${user.venue.name} (${user.venue.city}).` });
-    await sendEmail({ to: user.email, subject: "Your strategist session request", text: `Hi ${user.name.split(" ")[0]},\n\nWe got your request for a 30-minute session for ${user.venue.name}. A strategist will email you to pick a time.\n\n— Profit Monitr` });
+    if (ops) await sendEmail({ to: ops, subject: `Call requested — ${user.venue.name}`, text: `${user.name} <${user.email}> asked for a 30-minute call about ${user.venue.name} (${user.venue.city}).` });
+    await sendEmail({ to: user.email, subject: "Your call request", text: `Hi ${user.name.split(" ")[0]},\n\nWe got your request for a 30-minute call about ${user.venue.name}. We'll email you to pick a time.\n\n— Profit Monitr` });
   }
   return { ok: true, changed };
 }
@@ -74,5 +75,48 @@ export async function requestExpert(user: CurrentUser, now = new Date()): Promis
 export async function setSampleData(user: CurrentUser, on: boolean): Promise<Decision> {
   if (readOnly(user)) return { ok: true, changed: false };
   const { count } = await db.venue.updateMany({ where: { id: user.venue.id, sampleData: !on }, data: { sampleData: on } });
+  return { ok: true, changed: count === 1 };
+}
+
+/** Where the venue's links send people by default. The URL was validated by the caller (src/lib/destinations.ts). */
+export async function setBookingPage(user: CurrentUser, bookingProvider: string, bookingUrl: string, website?: string): Promise<Decision> {
+  if (readOnly(user)) return { ok: true, changed: false };
+  const data = { bookingProvider, bookingUrl, ...(website === undefined ? {} : { website }) };
+  const { count } = await db.venue.updateMany({ where: { id: user.venue.id, NOT: data }, data });
+  return { ok: true, changed: count === 1 };
+}
+
+export type BookingChoice = Decision & { bookingProvider: Provider; bookingUrl: string; website: string; websiteVerified: boolean };
+
+/**
+ * The owner's answer to "where do guests book?": the pasted page decides the
+ * provider; "Monitr's page" clears it. A page that is not a known platform is
+ * the venue's own site — adopted as its website when none was given (as at
+ * sign-up) — and goes live once the operator has verified it. Throws FormError.
+ */
+export async function chooseBookingPage(user: CurrentUser, chosen: unknown, raw: string, appHosts: string[]): Promise<BookingChoice> {
+  const venue = user.venue;
+  const provider: Provider = isProvider(chosen) ? chosen : "native";
+  if (provider === "native") {
+    const r = await setBookingPage(user, "native", "");
+    return { ...r, bookingProvider: "native", bookingUrl: "", website: venue.website, websiteVerified: venue.websiteVerified };
+  }
+  if (!raw) throw new FormError({ bookingUrl: "Paste the page where guests book." });
+  let website = venue.website;
+  if (provider === "website" && !websiteHost(website)) website = websiteHost(raw);
+  const n = normalizeDestination(raw, website, appHosts);
+  if ("error" in n) throw new FormError({ bookingUrl: n.error });
+  // A new own-site host is a new claim: verification starts over.
+  const siteChanged = n.provider === "website" && websiteHost(website) !== websiteHost(venue.website);
+  const r = await setBookingPage(user, n.provider, n.url, website === venue.website ? undefined : website);
+  if (siteChanged && !readOnly(user)) await db.venue.updateMany({ where: { id: venue.id, websiteVerified: true }, data: { websiteVerified: false } });
+  return { ...r, bookingProvider: n.provider, bookingUrl: n.url, website, websiteVerified: siteChanged ? false : venue.websiteVerified };
+}
+
+/** One link's own destination (the platform's tracking link for that promoter or campaign); empty clears it. Validated by the caller. */
+export async function setChannelDestination(user: CurrentUser, id: string, destination: string): Promise<Decision> {
+  if (readOnly(user)) return { ok: true, changed: false };
+  const { count } = await db.channel.updateMany({ where: { id, venueId: user.venue.id, NOT: { destination } }, data: { destination } });
+  if (!count && !(await db.channel.findFirst({ where: { id, venueId: user.venue.id }, select: { id: true } }))) throw new HttpError(404, "Channel not found.");
   return { ok: true, changed: count === 1 };
 }

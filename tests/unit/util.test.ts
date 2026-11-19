@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { rateLimit, resetRateLimits } from "@/lib/rate-limit";
-import { deltaLabel, formatCard, formatExpiry, money, moneyExact, parseDollars, passwordScore, pct, slugify } from "@/lib/util";
+import { deltaLabel, money, moneyExact, parseDollars, passwordScore, pct, slugify } from "@/lib/util";
 import { validateStep, EMPTY_SIGNUP } from "@/lib/validation";
 
 describe("formatting", () => {
@@ -56,19 +56,12 @@ describe("sign-up helpers", () => {
     expect(passwordScore("Abcdefg1")).toBe(3);
     expect(passwordScore("Abcdef1!")).toBe(4);
   });
-  it("groups the card number and expiry as typed", () => {
-    expect(formatCard("4242424242424242999")).toBe("4242 4242 4242 4242");
-    expect(formatCard("4242-42")).toBe("4242 42");
-    expect(formatExpiry("1230")).toBe("12/30");
-    expect(formatExpiry("1")).toBe("1");
-  });
-  it("validates each step with the handoff's messages", () => {
+  it("validates each step with the handoff's messages; step 3 is consent only — there is no card", () => {
     expect(validateStep(1, EMPTY_SIGNUP)).toEqual({ name: "Please enter your name.", email: "Enter a valid email.", password: "Use at least 8 characters." });
     expect(validateStep(2, { ...EMPTY_SIGNUP, sells: [] })).toEqual({ venue: "What is your venue called?", city: "Which city?", sells: "Pick at least one." });
-    expect(validateStep(3, EMPTY_SIGNUP)).toEqual({ cardName: "Name as it appears on the card.", card: "Enter a 16-digit card number.", exp: "MM/YY", cvc: "3–4 digits", zip: "Required", agree: "Please agree to continue." });
-    // With a hosted payment form only the consent is ours to check.
-    expect(validateStep(3, EMPTY_SIGNUP, false)).toEqual({ agree: "Please agree to continue." });
-    expect(validateStep(3, { ...EMPTY_SIGNUP, cardName: "Dana Test", card: "4242 4242 4242 4242", exp: "12/30", cvc: "123", zip: "11201", agree: true })).toEqual({});
+    expect(validateStep(3, EMPTY_SIGNUP)).toEqual({ agree: "Please agree to continue." });
+    expect(validateStep(3, { ...EMPTY_SIGNUP, agree: true })).toEqual({});
+    expect(Object.keys(EMPTY_SIGNUP)).not.toContain("card");
   });
 });
 
