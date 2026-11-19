@@ -43,7 +43,26 @@ build there.
 - **No payment code.** Accounts are free pilots (`ALLOW_SIGNUPS=1` opens
   sign-up in production). A ported Stripe path was removed after review — read
   `claude-reports/Money-Safety/` before building billing.
-- Node 22.14.0 (`.node-version`, render.yaml).
+- Node 22.23.5 (`.node-version`, render.yaml — keep the two in step).
+
+## Production database (shared instance)
+
+- Render service `profit-monitr` (old workspace "My Workspace", Oregon, free
+  web plan) uses the logical database **`profit_monitr` on `shared-postgres`**,
+  the instance other client apps share (`render-shared-db` skill). The Render
+  dashboard never lists it — only psql `\l` does. The `render` CLI on this Mac
+  is logged into the SotoDev workspace and cannot see either.
+- `DATABASE_URL` is `sync: false` in `render.yaml` and set in the dashboard to
+  the instance's Internal URL with the db name swapped to `/profit_monitr`.
+  Don't reintroduce a `databases:` block or `fromDatabase`: a Blueprint sync
+  would create an empty database and re-point the service at it.
+- History: until Nov 2026 the Blueprint created its own free
+  `profit-monitr-db`. Render expired and deleted it (no backup), and the
+  service crash-looped on `P1001` at boot (2026-11-19). The repo is public:
+  keep instance IDs, URLs and other apps' database names out of it.
+- Only this service runs migrations against `profit_monitr` (start command).
+  Per-app backup: `pg_dump --format=custom … profit_monitr`. Instance restores
+  roll back every app on it.
 
 ## Commands
 
