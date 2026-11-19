@@ -151,7 +151,7 @@ upload the Posh export under Reservations & tickets.
 
 ## Run it locally
 
-Requirements: Node 20.9+ (22.14 pinned) and a local PostgreSQL.
+Requirements: Node 20.9+ (22.23.5 pinned) and a local PostgreSQL.
 
 ```bash
 cp .env.example .env            # set DATABASE_URL
@@ -173,19 +173,35 @@ landing page (the shared account's credentials are in `src/data/sample.ts`).
 
 ## Deploy on Render
 
+The live service (`profit-monitr`, old Render workspace "My Workspace", Oregon)
+keeps its data in the logical database **`profit_monitr` on the shared instance
+`shared-postgres`**, which other apps also use. `render.yaml` does not create a
+database. The Render dashboard does not list logical databases; only psql `\l`
+on the instance does.
+
 1. Push this folder to a GitHub repo.
-2. Render → **New → Blueprint** → select the repo. `render.yaml` creates a
-   Postgres database and a Node web service, wires `DATABASE_URL`, generates
-   `CRON_SECRET`, opens sign-up (`ALLOW_SIGNUPS=1`), runs `prisma migrate deploy`
-   and the demo seed on every deploy, and health-checks `/api/health`.
-3. Optional: attach a custom domain and set `APP_URL` to it (until then the app
+2. Create the database once: run the instance's **PSQL Command** (instance →
+   Connections) and `CREATE DATABASE profit_monitr;`.
+3. Render → **New → Blueprint** → select the repo. `render.yaml` creates the
+   Node web service, generates `CRON_SECRET`, opens sign-up (`ALLOW_SIGNUPS=1`),
+   runs `prisma migrate deploy` and the demo seed on every deploy, and
+   health-checks `/api/health`. It asks for `DATABASE_URL` (`sync: false`):
+   paste the instance's **Internal Database URL** with the trailing database
+   name replaced by `/profit_monitr`. The service must be in the instance's
+   workspace and region for the internal URL to work.
+4. Optional: attach a custom domain and set `APP_URL` to it (until then the app
    uses Render's own URL for canonical links, the sitemap and emails).
-4. Optional: schedule `POST /api/cron/weekly-brief` hourly on Mondays — the
+5. Optional: schedule `POST /api/cron/weekly-brief` hourly on Mondays — the
    Render cron block is in `render.yaml`, commented out because cron jobs are a
    paid add-on; any scheduler that can send a bearer token works.
-5. After the first deploy, check which header carries the visitor's address
+6. After the first deploy, check which header carries the visitor's address
    behind Render's proxy (`clientKey()` in `src/lib/api.ts`); rate limits and
    click de-duplication key on it.
+
+Backups on a shared instance are per instance: restoring one rolls back every
+app on it. For a per-app copy, `pg_dump --format=custom … profit_monitr`.
+Connections are a shared limit (100 on the instance's plan); this app's `pg`
+pool is the default 10 per instance.
 
 ### Before launch
 
@@ -198,9 +214,9 @@ landing page (the shared account's credentials are in `src/data/sample.ts`).
    service (tracked links show that host). Resend needs a verified sending
    domain before Monday briefs reach anyone but you.
 3. **Email** — `RESEND_API_KEY` and `EMAIL_FROM` on that domain.
-4. **The brief** — a scheduler for step 4 above.
-5. **Database** — move off Render's free plan (free databases expire after 30
-   days).
+4. **The brief** — a scheduler for step 5 above.
+5. **Database** — `profit_monitr` on `shared-postgres` (paid, no expiry). Take
+   a per-app `pg_dump` before inviting pilots and on a schedule after.
 6. **Sign-up policy** — keep `ALLOW_SIGNUPS=1` for open pilots, or remove it
    and create pilot accounts yourself.
 7. Review `/pilot-terms` and `/privacy` (product descriptions, not legal advice).
@@ -209,7 +225,7 @@ landing page (the shared account's credentials are in `src/data/sample.ts`).
 
 | Variable | Required | Purpose |
 | --- | --- | --- |
-| `DATABASE_URL` | yes | Postgres connection string |
+| `DATABASE_URL` | yes | Postgres connection string. On Render: `shared-postgres` Internal URL ending in `/profit_monitr` (set in the dashboard, not in `render.yaml`) |
 | `APP_URL` | no | Public origin; defaults to `RENDER_EXTERNAL_URL` on Render. Also one of the app's own hosts a destination may never point at |
 | `NEXT_PUBLIC_LINK_HOST` | no | Display host for tracked links (default `monitr.link`). Links resolve through `<app>/r/…` until that domain points at the service |
 | `CRON_SECRET` | for the brief | Protects the weekly-brief endpoint; unset = endpoint disabled |
